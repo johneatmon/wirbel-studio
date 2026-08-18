@@ -18,6 +18,7 @@ import { acceptGhost, ghostText, type GhostStatus } from './ghost-text';
 
 export interface StrudelEditorHandle {
   getCode(): string;
+  setCode(code: string): void;
   insertBlock(defId: string): void;
 }
 
@@ -25,23 +26,35 @@ interface StrudelEditorProps {
   initialDoc: string;
   onEvaluate: (code: string) => void;
   onStop: () => void;
+  onChange?: (code: string) => void;
   onGhostStatus?: (status: GhostStatus, message?: string) => void;
 }
 
 export const StrudelEditor = forwardRef<StrudelEditorHandle, StrudelEditorProps>(
-  function StrudelEditor({ initialDoc, onEvaluate, onStop, onGhostStatus }, ref) {
+  function StrudelEditor({ initialDoc, onEvaluate, onStop, onChange, onGhostStatus }, ref) {
     const hostRef = useRef<HTMLDivElement | null>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onEvaluateRef = useRef(onEvaluate);
     const onStopRef = useRef(onStop);
+    const onChangeRef = useRef(onChange);
     const onGhostStatusRef = useRef(onGhostStatus);
     onEvaluateRef.current = onEvaluate;
     onStopRef.current = onStop;
+    onChangeRef.current = onChange;
     onGhostStatusRef.current = onGhostStatus;
     const [flashSeq, setFlashSeq] = useState(0);
 
     useImperativeHandle(ref, () => ({
       getCode: () => viewRef.current?.state.doc.toString() ?? '',
+      setCode: (code: string) => {
+        const view = viewRef.current;
+        if (!view || view.state.doc.toString() === code) return;
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: code },
+          selection: { anchor: 0 },
+          userEvent: 'input.clip',
+        });
+      },
       insertBlock: (defId: string) => {
         if (viewRef.current) insertBlockCmd(viewRef.current, defId);
       },
@@ -87,6 +100,9 @@ export const StrudelEditor = forwardRef<StrudelEditorHandle, StrudelEditorProps>
           blockAtomicRanges,
           ghostText({
             onStatus: (status, message) => onGhostStatusRef.current?.(status, message),
+          }),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) onChangeRef.current?.(update.state.doc.toString());
           }),
           autocompletion({
             override: [functionDocCompletions, contextStringCompletions, miniNotationSnippets],

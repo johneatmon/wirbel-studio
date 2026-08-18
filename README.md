@@ -1,8 +1,8 @@
 # Strudel Studio
 
-A beginner-friendly live-coding music environment built on
-[Strudel](https://strudel.cc/). It layers locked, editable pattern blocks over plain Strudel code,
-then lets musicians eject those blocks into regular code as they learn.
+A session-oriented live-coding music environment built on [Strudel](https://strudel.cc/). Musicians
+launch clips into instrument lanes, combine them into scenes, and open any clip as plain Strudel code.
+Locked parameter blocks remain the bridge from guided composition to live coding.
 
 The product direction and architectural decisions live in [DESIGN.md](./DESIGN.md).
 
@@ -15,9 +15,11 @@ The product direction and architectural decisions live in [DESIGN.md](./DESIGN.m
 - Deterministic API, sample, scale, bank, and mini-notation autocomplete
 - Hap-lane and oscilloscope canvas layers on the shared animation frame
 - Optional, idle-triggered Anthropic ghost text with Tab acceptance and locked-block suppression
+- Session workspace with five lanes, two scenes, clock-quantized clip replacement, and per-lane stops
+- A portable session compiler that renders active clips as ordinary `stack(...)` Strudel code
 
-The next product milestone is the library-and-ship pass: more curated blocks, sketch persistence,
-URL sharing, the command palette, and first-run polish.
+The next product milestone adds persistent clip editing and a lane mixer, followed by capturing a jam
+into an arrangement and MIDI file interchange.
 
 ## Run locally
 
@@ -47,8 +49,12 @@ pnpm build
 | `Cmd/Ctrl + .`     | Stop playback                                  |
 | `Tab`              | Accept visible AI ghost text; otherwise indent |
 
-Blocks can be inserted from the toolbar and ejected from their header. Number chips support drag,
-wheel, and double-click entry; Shift makes a drag finer and Alt makes it coarser.
+Session is the default workspace. Launching a clip replaces the active clip in its lane; launching a
+scene changes all populated lanes together at the selected quantize boundary. Use a clip's **edit**
+action to open its source in Code mode.
+
+Blocks can be inserted from the Code toolbar and ejected from their header. Number chips support
+drag, wheel, and double-click entry; Shift makes a drag finer and Alt makes it coarser.
 
 ## AI completion
 
