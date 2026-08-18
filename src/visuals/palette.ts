@@ -11,7 +11,3 @@ function hashString(s: string): number {
 export function hueFor(key: string): number {
   return HUES[hashString(key) % HUES.length];
 }
-
-export function laneIndexFor(key: string, laneCount: number): number {
-  return hashString(key) % laneCount;
-}

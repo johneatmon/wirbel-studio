@@ -11,6 +11,7 @@ declare module '@strudel/core' {
     whole: { begin: number; end: number } | undefined;
     part: { begin: number; end: number };
     value: Record<string, unknown>;
+    context?: { tags?: string[] };
     hasOnset(): boolean;
   }
 }

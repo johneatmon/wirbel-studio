@@ -12,6 +12,15 @@ beforeEach(() => {
     scenes: DEFAULT_SCENES.map((scene) => ({ ...scene, clipIds: { ...scene.clipIds } })),
     activeByLane: emptyActiveClips(DEFAULT_LANES),
     selectedClipId: null,
+    capturing: false,
+    playingArrangement: false,
+    arrangement: {
+      events: [],
+      sections: [{ id: 'section-A', name: 'A', startCycle: 0 }],
+      lengthCycles: 0,
+      originActive: emptyActiveClips(DEFAULT_LANES),
+      originMuted: Object.fromEntries(DEFAULT_LANES.map((lane) => [lane.id, false])),
+    },
   });
 });
 
@@ -41,6 +50,44 @@ describe('session clip editing', () => {
     expect(state.activeByLane.drums).toBeNull();
     expect(state.clips.some((clip) => clip.id === 'drums-909')).toBe(false);
     expect(state.scenes.some((scene) => scene.clipIds.drums === 'drums-909')).toBe(false);
+  });
+});
+
+describe('session capture', () => {
+  it('records launches against the take and restores them on replay', () => {
+    useSessionStore.getState().startCapture();
+    useSessionStore.getState().toggleClip('drums-909');
+    useSessionStore.getState().toggleClip('bass-acid');
+    expect(useSessionStore.getState().arrangement.events.map((event) => event.action)).toEqual([
+      { type: 'launch', laneId: 'drums', clipId: 'drums-909' },
+      { type: 'launch', laneId: 'bass', clipId: 'bass-acid' },
+    ]);
+    useSessionStore.getState().stopCapture();
+    useSessionStore.getState().stopAll();
+    expect(useSessionStore.getState().activeByLane.drums).toBeNull();
+    useSessionStore.getState().playArrangement();
+    const state = useSessionStore.getState();
+    expect(state.activeByLane.drums).toBe('drums-909');
+    expect(state.activeByLane.bass).toBe('bass-acid');
+    expect(state.playingArrangement).toBe(true);
+  });
+});
+
+describe('MIDI import into the session', () => {
+  it('creates a scene with clips on the mapped lanes', () => {
+    const sceneId = useSessionStore.getState().importMidiScene(
+      [
+        { laneId: 'drums', name: 'Imported drums', code: 's("bd sd")' },
+        { laneId: 'melody', name: 'Imported melody', code: 'note("c4 e4")' },
+      ],
+      96,
+    );
+    const state = useSessionStore.getState();
+    const scene = state.scenes.find((candidate) => candidate.id === sceneId);
+    expect(state.tempo).toBe(96);
+    expect(scene?.name).toBe('MIDI import');
+    expect(state.clips.find((clip) => clip.id === scene?.clipIds.drums)?.code).toBe('s("bd sd")');
+    expect(state.clips.find((clip) => clip.id === scene?.clipIds.melody)?.code).toContain('c4');
   });
 });
 

@@ -15,3 +15,8 @@ export const useClockStore = create<ClockState>(() => ({
   cps: 0.5,
   playing: false,
 }));
+
+export function currentCycleNow(): number {
+  const { cycle, phase } = useClockStore.getState();
+  return cycle + phase;
+}

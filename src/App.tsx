@@ -15,7 +15,13 @@ import type { GhostStatus } from './editor/ghost-text';
 import { SessionWorkspace } from './session/session-workspace';
 import { type SessionClip } from './session/model';
 import { evaluateActiveSession } from './session/eval-session';
+import { startArrangementPlayer } from './session/arrangement-player';
 import { startSessionPersistence, useSessionStore } from './session/session-store';
+import { formatRiffInsert, requestRiffSuggestion } from './completions/ghost-client';
+import { CommandPalette, type CommandItem } from './ui/command-palette';
+import { RiffPreview } from './ui/riff-preview';
+import { InterchangePanel } from './interchange/interchange-panel';
+import { sessionPortableCode, strudelShareUrl } from './interchange/export-session';
 
 const BLOCK_DEFS = [...registry.values()];
 
@@ -48,6 +54,15 @@ function App() {
   const [ghostStatus, setGhostStatus] = useState<{ status: GhostStatus; message?: string }>({
     status: 'idle',
   });
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [showInterchange, setShowInterchange] = useState(false);
+  const [riff, setRiff] = useState<{
+    status: 'loading' | 'ready' | 'error';
+    code: string;
+    error: string | null;
+    backup: string;
+  } | null>(null);
+  const riffAbortRef = useRef<AbortController | null>(null);
   const bootedRef = useRef(false);
   const editorRef = useRef<StrudelEditorHandle>(null);
   const selectedClipId = useSessionStore((state) => state.selectedClipId);
@@ -58,6 +73,10 @@ function App() {
   const selectedClip = useSessionStore((state) =>
     state.clips.find((clip) => clip.id === state.selectedClipId),
   );
+  const capturing = useSessionStore((state) => state.capturing);
+  const playingArrangement = useSessionStore((state) => state.playingArrangement);
+  const arrangementLength = useSessionStore((state) => state.arrangement.lengthCycles);
+  const hasActiveClip = useSessionStore((state) => Object.values(state.activeByLane).some(Boolean));
 
   useEffect(() => {
     if (bootedRef.current) return;
@@ -118,7 +137,17 @@ function App() {
     void evaluateActiveSession(quantize, markEvaluated);
   }, [ready, quantize, markEvaluated]);
 
+  useEffect(
+    () =>
+      startArrangementPlayer(() => {
+        if (!ready) return;
+        void evaluateActiveSession('immediate', markEvaluated);
+      }),
+    [markEvaluated, ready],
+  );
+
   const handleStop = useCallback(() => {
+    useSessionStore.getState().stopArrangementPlayback();
     useSessionStore.getState().stopAll();
     stopEngine();
   }, []);
@@ -161,6 +190,156 @@ function App() {
     setGhostStatus({ status: 'idle' });
     setShowSettings(false);
   }, []);
+
+  const toggleCapture = useCallback(() => {
+    const session = useSessionStore.getState();
+    if (session.capturing) session.stopCapture();
+    else session.startCapture();
+  }, []);
+
+  const playArrangement = useCallback(() => {
+    if (!useSessionStore.getState().playArrangement()) return;
+    void evaluateActiveSession('immediate', markEvaluated);
+  }, [markEvaluated]);
+
+  const startRiff = useCallback(() => {
+    const settings = loadGhostSettings();
+    setGhostSettings(settings);
+    if (!settings.apiKey.trim() || !ready) return;
+    setWorkspace('code');
+    riffAbortRef.current?.abort();
+    const controller = new AbortController();
+    riffAbortRef.current = controller;
+    const backup = editorRef.current?.getCode() ?? '';
+    setRiff({ status: 'loading', code: '', error: null, backup });
+    void requestRiffSuggestion(backup, settings, controller.signal)
+      .then(async (code) => {
+        if (controller.signal.aborted) return;
+        const stacked = backup.trim() ? `stack(\n${backup.trim()},\n${code}\n)` : code;
+        await evaluateCode(stacked, 'immediate');
+        markEvaluated();
+        setRiff({ status: 'ready', code, error: null, backup });
+      })
+      .catch((reason: unknown) => {
+        if (controller.signal.aborted) return;
+        setRiff({
+          status: 'error',
+          code: '',
+          error: reason instanceof Error ? reason.message : String(reason),
+          backup,
+        });
+      });
+  }, [markEvaluated, ready]);
+
+  const rejectRiff = useCallback(() => {
+    riffAbortRef.current?.abort();
+    const backup = riff?.backup;
+    setRiff(null);
+    if (backup !== undefined) handleEditorEvaluate(backup);
+  }, [handleEditorEvaluate, riff]);
+
+  const acceptRiff = useCallback(() => {
+    if (!riff?.code) return;
+    editorRef.current?.insertAtEnd(formatRiffInsert(riff.code));
+    setRiff(null);
+    handleEditorEvaluate(editorRef.current?.getCode() ?? '');
+  }, [handleEditorEvaluate, riff]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (paletteOpen) {
+          event.preventDefault();
+          setPaletteOpen(false);
+          return;
+        }
+        if (showInterchange) {
+          event.preventDefault();
+          setShowInterchange(false);
+          return;
+        }
+        if (riff) {
+          event.preventDefault();
+          rejectRiff();
+        }
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'r') {
+        event.preventDefault();
+        toggleCapture();
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setShowSettings(false);
+        setShowInterchange(false);
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [paletteOpen, rejectRiff, riff, showInterchange, toggleCapture]);
+
+  const commandItems: CommandItem[] = [
+    {
+      id: 'capture',
+      label: capturing ? 'Stop jam capture' : 'Capture jam',
+      hint: '⌘⇧R',
+      run: toggleCapture,
+    },
+    {
+      id: 'play-arrangement',
+      label: 'Play arrangement',
+      disabled: arrangementLength <= 0 && !capturing,
+      run: playArrangement,
+    },
+    {
+      id: 'clear-arrangement',
+      label: 'Clear arrangement',
+      disabled: arrangementLength <= 0,
+      run: () => useSessionStore.getState().clearArrangement(),
+    },
+    {
+      id: 'copy-strudel',
+      label: 'Copy session as Strudel',
+      disabled: !hasActiveClip,
+      run: () => {
+        const code = sessionPortableCode();
+        if (code) void navigator.clipboard.writeText(code);
+      },
+    },
+    {
+      id: 'open-strudel',
+      label: 'Open session in strudel.cc',
+      disabled: !hasActiveClip,
+      run: () => {
+        const code = sessionPortableCode();
+        if (code) window.open(strudelShareUrl(code), '_blank', 'noopener');
+      },
+    },
+    {
+      id: 'interchange',
+      label: 'MIDI and project files',
+      hint: 'Share',
+      run: () => setShowInterchange(true),
+    },
+    {
+      id: 'riff',
+      label: 'Riff a complementary layer',
+      hint: ghostSettings.apiKey ? 'AI' : 'Needs API key',
+      disabled: !ready || !ghostSettings.apiKey,
+      run: startRiff,
+    },
+    ...BLOCK_DEFS.map((def) => ({
+      id: `block-${def.id}`,
+      label: `Insert ${def.name}`,
+      hint: def.category,
+      run: () => {
+        setWorkspace('code');
+        editorRef.current?.insertBlock(def.id);
+      },
+    })),
+  ];
 
   return (
     <div className="flex h-full flex-col bg-neutral-950 text-neutral-200">
@@ -211,6 +390,29 @@ function App() {
         <span className={started ? 'text-emerald-400' : 'text-neutral-500'}>
           {started ? `● cycle ${cycle} · ${(cps * 60).toFixed(0)} cpm` : '○ stopped'}
         </span>
+        <button
+          type="button"
+          onClick={toggleCapture}
+          className={`rounded px-2.5 py-1 text-xs font-medium ${
+            capturing
+              ? 'bg-red-900/80 text-red-100'
+              : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200'
+          }`}
+        >
+          {capturing ? '● Rec' : '○ Rec'}
+        </button>
+        <button
+          type="button"
+          onClick={playArrangement}
+          disabled={arrangementLength <= 0 && !capturing}
+          className={`rounded px-2.5 py-1 text-xs font-medium disabled:opacity-40 ${
+            playingArrangement
+              ? 'bg-emerald-900/70 text-emerald-200'
+              : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200'
+          }`}
+        >
+          {playingArrangement ? 'Playing take' : 'Play take'}
+        </button>
         <div className="ml-auto flex items-center gap-1 rounded-md bg-neutral-900 p-0.5 text-xs">
           {(['session', 'code'] as const).map((view) => (
             <button
@@ -228,6 +430,27 @@ function App() {
           ))}
         </div>
         <span className="text-neutral-500">strudel studio</span>
+        <button
+          type="button"
+          onClick={() => {
+            setShowSettings(false);
+            setShowInterchange(true);
+          }}
+          className="rounded px-2 py-1 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+          aria-label="Share and interchange"
+          title="Share, MIDI, and project files"
+        >
+          Share
+        </button>
+        <button
+          type="button"
+          onClick={() => setPaletteOpen(true)}
+          className="rounded px-2 py-1 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+          aria-label="Open command palette"
+          title="Command palette"
+        >
+          ⌘K
+        </button>
         <button
           type="button"
           onClick={() => setShowSettings(true)}
@@ -273,7 +496,7 @@ function App() {
               onEditClip={handleEditClip}
             />
           </div>
-          <div className={workspace === 'code' ? 'h-full' : 'hidden'}>
+          <div className={workspace === 'code' ? 'relative h-full' : 'hidden'}>
             <StrudelEditor
               ref={editorRef}
               initialDoc={STARTER_CODE}
@@ -287,6 +510,15 @@ function App() {
                 setGhostStatus({ status: nextStatus, message })
               }
             />
+            {riff && (
+              <RiffPreview
+                code={riff.code}
+                error={riff.error}
+                loading={riff.status === 'loading'}
+                onAccept={acceptRiff}
+                onReject={rejectRiff}
+              />
+            )}
           </div>
         </div>
         <div className="w-80 shrink-0 bg-neutral-950">
@@ -323,6 +555,14 @@ function App() {
           </span>
         )}
       </footer>
+
+      {paletteOpen && (
+        <CommandPalette items={commandItems} onClose={() => setPaletteOpen(false)} />
+      )}
+
+      {showInterchange && (
+        <InterchangePanel engineReady={ready} onClose={() => setShowInterchange(false)} />
+      )}
 
       {showSettings && (
         <GhostSettingsPanel

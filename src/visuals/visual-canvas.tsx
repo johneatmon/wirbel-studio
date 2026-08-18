@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { onFrame } from '../audio/clock';
 import { currentPattern, scopeWaveform } from '../audio/engine';
+import { useSessionStore } from '../session/session-store';
 import { drawHapLane } from './hap-lane';
 import { drawScope } from './scope';
 
@@ -8,6 +9,9 @@ import { drawScope } from './scope';
  * onFrame) rather than running their own loops — §7 perf budget. */
 export function VisualCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lanes = useSessionStore((state) => state.lanes);
+  const lanesRef = useRef(lanes);
+  lanesRef.current = lanes;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,7 +33,7 @@ export function VisualCanvas() {
       const height = canvas.clientHeight;
       ctx.clearRect(0, 0, width, height);
       drawScope(ctx, scopeWaveform(), width, height);
-      drawHapLane(ctx, currentPattern(), now, width, height);
+      drawHapLane(ctx, currentPattern(), now, width, height, lanesRef.current);
     });
 
     return () => {

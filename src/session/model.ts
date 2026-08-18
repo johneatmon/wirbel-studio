@@ -184,9 +184,16 @@ export function indentExpression(code: string): string {
     .join('\n');
 }
 
+export const STUDIO_LANE_TAG_PREFIX = 'studio-lane:';
+
+export function studioLaneTag(laneId: string): string {
+  return `${STUDIO_LANE_TAG_PREFIX}${laneId}`;
+}
+
 export function compileLaneExpression(lane: SessionLane, clip: SessionClip): string {
   const trimmed = clip.code.trim().replace(/;+$/, '');
-  return lane.gain === 1 ? trimmed : `(${trimmed}).gain(${lane.gain})`;
+  const gained = lane.gain === 1 ? trimmed : `(${trimmed}).gain(${lane.gain})`;
+  return `(${gained}).tag(${JSON.stringify(studioLaneTag(lane.id))})`;
 }
 
 export interface SessionCompilePart {

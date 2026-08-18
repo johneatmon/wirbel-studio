@@ -13,15 +13,18 @@ The product direction and architectural decisions live in [DESIGN.md](./DESIGN.m
 - Three valid-Strudel block definitions with locked regions, undoable eject, and repair-on-load
 - Number, enum, and mini-notation slot controls with quantized re-evaluation
 - Deterministic API, sample, scale, bank, and mini-notation autocomplete
-- Hap-lane and oscilloscope canvas layers on the shared animation frame
+- Hap-lane visualization aligned to session mixer rows, with tagged clip identity, plus a shared-clock oscilloscope underlay
 - Optional, idle-triggered Anthropic ghost text with Tab acceptance and locked-block suppression
+- Command palette (`Cmd/Ctrl + K`) with a riff command that auditions a complementary AI layer before insert
 - Session workspace with five lanes, two scenes, clock-quantized clip replacement, and per-lane stops
 - A portable session compiler that renders active clips as ordinary `stack(...)` Strudel code
 - Versioned IndexedDB projects with autosave, project switching, new/duplicate flows, and reload restoration
 - Editable scene and clip names plus scene creation and clip create/duplicate/delete controls
 - Per-lane mixer (gain, mute, solo) and last-known-good clip error isolation during session playback
+- Jam capture to a scheduler-cycle arrangement with replay and a compact lane timeline
+- MIDI file import/export, copy-as-Strudel / strudel.cc links, and downloadable JSON project files
 
-The next product milestone captures a jam into an arrangement and adds MIDI file interchange.
+The next product milestone adds a clip library, templates, URL sharing, and onboarding polish.
 
 ## Run locally
 
@@ -50,10 +53,13 @@ pnpm build
 | `Cmd/Ctrl + Enter` | Evaluate immediately                           |
 | `Cmd/Ctrl + .`     | Stop playback                                  |
 | `Tab`              | Accept visible AI ghost text; otherwise indent |
+| `Cmd/Ctrl + K`     | Command palette (riff, insert block, share) |
+| `Cmd/Ctrl + Shift + R` | Start or stop jam capture                 |
 
 Session is the default workspace. Launching a clip replaces the active clip in its lane; launching a
 scene changes all populated lanes together at the selected quantize boundary. Use a clip's **edit**
-action to open its source in Code mode.
+action to open its source in Code mode. **Share** copies the launched session as Strudel, imports or
+exports Standard MIDI Files, and downloads or loads a JSON project.
 
 Blocks can be inserted from the Code toolbar and ejected from their header. Number chips support
 drag, wheel, and double-click entry; Shift makes a drag finer and Alt makes it coarser.
@@ -66,4 +72,5 @@ go directly to the configured Messages API endpoint. For a deployed or shared bu
 key or place a small authenticated proxy in front of the provider.
 
 The endpoint and model are editable because provider model names and gateways change independently
-of the app.
+of the app. With a key saved, **Riff a complementary layer** in the command palette asks for a
+whole extra part, auditions it stacked on the current buffer, and inserts it only if you accept.

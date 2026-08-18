@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { SessionClip } from './model';
+import { ArrangementTimeline } from './arrangement-timeline';
 import { useSessionStore } from './session-store';
 
 interface SessionWorkspaceProps {
@@ -413,6 +414,8 @@ export function SessionWorkspace({
           ))}
         </div>
       </div>
+
+      <ArrangementTimeline />
 
       <div className="flex min-h-12 items-center gap-3 border-t border-neutral-900 px-5 py-2 text-xs">
         {selectedClip ? (

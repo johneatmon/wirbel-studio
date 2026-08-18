@@ -152,6 +152,18 @@ export async function tryEvaluateExpression(
   }
 }
 
+/** Compile `code` to a queryable pattern without starting the scheduler. */
+export async function loadPattern(code: string): Promise<Pattern | null> {
+  if (!repl) return null;
+  try {
+    const pattern = await repl.evaluate(code, false);
+    if (repl.state.evalError) return null;
+    return pattern ?? repl.state.pattern ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function getRepl(): StrudelRepl | null {
   return repl;
 }

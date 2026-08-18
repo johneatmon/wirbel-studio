@@ -47,8 +47,8 @@ describe('compileSession', () => {
   it('emits portable stack code in lane order and applies lane gain', () => {
     const code = compileSession(lanes, clips, { drums: 'drums-a', bass: 'bass-a' });
     expect(code).toContain('stack(');
-    expect(code).toContain('s("bd*4")');
-    expect(code).toContain('(note("c2")).gain(0.5)');
+    expect(code).toContain('(s("bd*4")).tag("studio-lane:drums")');
+    expect(code).toContain('((note("c2")).gain(0.5)).tag("studio-lane:bass")');
     expect(code?.indexOf('bd*4')).toBeLessThan(code?.indexOf('c2') ?? 0);
   });
 

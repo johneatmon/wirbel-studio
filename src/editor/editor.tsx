@@ -20,6 +20,7 @@ export interface StrudelEditorHandle {
   getCode(): string;
   setCode(code: string): void;
   insertBlock(defId: string): void;
+  insertAtEnd(text: string): void;
 }
 
 interface StrudelEditorProps {
@@ -57,6 +58,18 @@ export const StrudelEditor = forwardRef<StrudelEditorHandle, StrudelEditorProps>
       },
       insertBlock: (defId: string) => {
         if (viewRef.current) insertBlockCmd(viewRef.current, defId);
+      },
+      insertAtEnd: (text: string) => {
+        const view = viewRef.current;
+        if (!view) return;
+        const length = view.state.doc.length;
+        const prefix = length === 0 || view.state.doc.sliceString(length - 1) === '\n' ? '\n' : '\n\n';
+        const insert = `${prefix}${text}\n`;
+        view.dispatch({
+          changes: { from: length, insert },
+          selection: { anchor: length + insert.length },
+          userEvent: 'input.riff',
+        });
       },
     }));
 

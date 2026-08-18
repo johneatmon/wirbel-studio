@@ -1,4 +1,5 @@
 import type { ActiveClips, SessionClip, SessionLane, SessionScene, SessionQuantize } from './model';
+import type { Arrangement } from './arrangement';
 
 const DB_NAME = 'strudel-studio';
 const DB_VERSION = 1;
@@ -17,6 +18,7 @@ export interface PersistedSessionProject {
   scenes: SessionScene[];
   activeByLane: ActiveClips;
   selectedClipId: string | null;
+  arrangement?: Arrangement;
   updatedAt: number;
 }
 
@@ -65,7 +67,7 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-function isProject(value: unknown): value is PersistedSessionProject {
+export function isProject(value: unknown): value is PersistedSessionProject {
   if (!value || typeof value !== 'object') return false;
   const project = value as Partial<PersistedSessionProject>;
   return (

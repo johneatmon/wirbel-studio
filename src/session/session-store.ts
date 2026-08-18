@@ -14,6 +14,17 @@ import {
   type SessionQuantize,
   type SessionScene,
 } from './model';
+import { currentCycleNow } from '../store/clock-store';
+import {
+  applyArrangementAction,
+  clampSectionStart,
+  defaultSections,
+  emptyArrangement,
+  eventsDue,
+  normalizeArrangement,
+  type Arrangement,
+  type ArrangementAction,
+} from './arrangement';
 import {
   deleteProject as deleteProjectRecord,
   listProjects,
@@ -36,6 +47,12 @@ interface SessionStore {
   scenes: SessionScene[];
   activeByLane: ActiveClips;
   selectedClipId: string | null;
+  arrangement: Arrangement;
+  capturing: boolean;
+  playingArrangement: boolean;
+  captureOriginCycle: number;
+  playbackOriginCycle: number;
+  nextEventIndex: number;
   projects: ProjectSummary[];
   hydrated: boolean;
   persistenceStatus: PersistenceStatus;
@@ -68,16 +85,27 @@ interface SessionStore {
   deleteClip: (clipId: string) => void;
   addScene: () => string;
   renameScene: (sceneId: string, name: string) => void;
+  startCapture: () => void;
+  stopCapture: () => void;
+  playArrangement: () => boolean;
+  stopArrangementPlayback: () => void;
+  applyArrangementUntil: (untilCycle: number) => boolean;
+  moveSection: (sectionId: string, startCycle: number) => void;
+  clearArrangement: () => void;
+  importMidiScene: (parts: { laneId: string; name: string; code: string }[], tempo?: number) => string | null;
+  importProjectFile: (project: PersistedSessionProject) => Promise<void>;
   setPersistenceState: (status: PersistenceStatus, error?: string | null) => void;
   setProjectSummaries: (projects: ProjectSummary[]) => void;
 }
 
 function cloneDefaults() {
+  const lanes = DEFAULT_LANES.map((lane) => ({ ...lane }));
   return {
-    lanes: DEFAULT_LANES.map((lane) => ({ ...lane })),
+    lanes,
     clips: DEFAULT_CLIPS.map((clip) => ({ ...clip })),
     scenes: DEFAULT_SCENES.map((scene) => ({ ...scene, clipIds: { ...scene.clipIds } })),
     activeByLane: emptyActiveClips(DEFAULT_LANES),
+    arrangement: emptyArrangement(lanes),
   };
 }
 
@@ -112,6 +140,13 @@ function projectFromState(state: SessionStore): PersistedSessionProject {
     scenes: state.scenes,
     activeByLane: state.activeByLane,
     selectedClipId: state.selectedClipId,
+    arrangement: {
+      events: [...state.arrangement.events],
+      sections: state.arrangement.sections.map((section) => ({ ...section })),
+      lengthCycles: state.arrangement.lengthCycles,
+      originActive: { ...state.arrangement.originActive },
+      originMuted: { ...state.arrangement.originMuted },
+    },
     updatedAt: Date.now(),
   };
 }
@@ -165,6 +200,7 @@ export function normalizeLoadedProject(project: PersistedSessionProject) {
     ),
     selectedClipId:
       project.selectedClipId && clipIds.has(project.selectedClipId) ? project.selectedClipId : null,
+    arrangement: normalizeArrangement(project.arrangement, project.lanes.map(normalizeLane), clips, scenes),
   };
 }
 
@@ -177,7 +213,37 @@ const initial = freshProject();
 const runtimeDefaults = {
   lastGoodByClipId: {} as Record<string, string>,
   laneErrors: {} as Record<string, string>,
+  capturing: false,
+  playingArrangement: false,
+  captureOriginCycle: 0,
+  playbackOriginCycle: 0,
+  nextEventIndex: 0,
 };
+
+function endArrangementPlayback(
+  get: () => SessionStore,
+  set: (partial: Partial<SessionStore>) => void,
+) {
+  if (get().playingArrangement) set({ playingArrangement: false });
+}
+
+function noteCapture(
+  get: () => SessionStore,
+  set: (partial: Partial<SessionStore>) => void,
+  action: ArrangementAction,
+) {
+  const state = get();
+  if (!state.capturing || state.playingArrangement) return;
+  set({
+    arrangement: {
+      ...state.arrangement,
+      events: [
+        ...state.arrangement.events,
+        { cycle: Math.max(0, currentCycleNow() - state.captureOriginCycle), action },
+      ],
+    },
+  });
+}
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
   ...stateFromProject(initial),
@@ -292,12 +358,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         lane.id === laneId ? { ...lane, gain: clampLaneGain(gain) } : lane,
       ),
     })),
-  toggleLaneMute: (laneId) =>
+  toggleLaneMute: (laneId) => {
+    endArrangementPlayback(get, set);
+    const muted = !get().lanes.find((lane) => lane.id === laneId)?.muted;
     set((state) => ({
-      lanes: state.lanes.map((lane) =>
-        lane.id === laneId ? { ...lane, muted: !lane.muted } : lane,
-      ),
-    })),
+      lanes: state.lanes.map((lane) => (lane.id === laneId ? { ...lane, muted } : lane)),
+    }));
+    noteCapture(get, set, { type: 'mute', laneId, muted });
+  },
   toggleLaneSolo: (laneId) =>
     set((state) => ({
       lanes: state.lanes.map((lane) =>
@@ -313,29 +381,43 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     })),
   clearRuntimeState: () => set(runtimeDefaults),
   toggleClip: (clipId) => {
+    endArrangementPlayback(get, set);
     const state = get();
     const clip = state.clips.find((candidate) => candidate.id === clipId);
     if (!clip) return state.activeByLane;
     const next = toggleSessionClip(state.activeByLane, clip);
     set({ activeByLane: next, selectedClipId: clipId });
+    noteCapture(
+      get,
+      set,
+      next[clip.laneId] === clip.id
+        ? { type: 'launch', laneId: clip.laneId, clipId: clip.id }
+        : { type: 'stop', laneId: clip.laneId },
+    );
     return next;
   },
   stopLane: (laneId) => {
+    endArrangementPlayback(get, set);
     const next = { ...get().activeByLane, [laneId]: null };
     set({ activeByLane: next });
+    noteCapture(get, set, { type: 'stop', laneId });
     return next;
   },
   launchScene: (sceneId) => {
+    endArrangementPlayback(get, set);
     const state = get();
     const scene = state.scenes.find((candidate) => candidate.id === sceneId);
     if (!scene) return state.activeByLane;
     const next = activateScene(state.activeByLane, scene, state.lanes);
     set({ activeByLane: next });
+    noteCapture(get, set, { type: 'scene', sceneId });
     return next;
   },
   stopAll: () => {
+    endArrangementPlayback(get, set);
     const next = emptyActiveClips(get().lanes);
     set({ activeByLane: next });
+    noteCapture(get, set, { type: 'stop-all' });
     return next;
   },
   selectClip: (selectedClipId) => set({ selectedClipId }),
@@ -425,6 +507,125 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((state) => ({
       scenes: state.scenes.map((scene) => (scene.id === sceneId ? { ...scene, name } : scene)),
     })),
+  startCapture: () => {
+    const state = get();
+    endArrangementPlayback(get, set);
+    set({
+      capturing: true,
+      captureOriginCycle: currentCycleNow(),
+      arrangement: {
+        events: [],
+        sections: [{ id: 'section-A', name: 'A', startCycle: 0 }],
+        lengthCycles: 0,
+        originActive: { ...state.activeByLane },
+        originMuted: Object.fromEntries(state.lanes.map((lane) => [lane.id, lane.muted])),
+      },
+    });
+  },
+  stopCapture: () => {
+    const state = get();
+    if (!state.capturing) return;
+    const elapsed = Math.max(0, currentCycleNow() - state.captureOriginCycle);
+    const lastEvent = state.arrangement.events.at(-1)?.cycle ?? 0;
+    const lengthCycles = Math.max(elapsed, lastEvent, 1);
+    set({
+      capturing: false,
+      arrangement: {
+        ...state.arrangement,
+        lengthCycles,
+        sections: defaultSections(lengthCycles),
+      },
+    });
+  },
+  playArrangement: () => {
+    const state = get();
+    if (state.capturing) get().stopCapture();
+    const arrangement = get().arrangement;
+    if (arrangement.lengthCycles <= 0 && arrangement.events.length === 0) return false;
+    set({
+      capturing: false,
+      playingArrangement: true,
+      playbackOriginCycle: currentCycleNow(),
+      nextEventIndex: 0,
+      activeByLane: { ...arrangement.originActive },
+      lanes: get().lanes.map((lane) => ({
+        ...lane,
+        muted: arrangement.originMuted[lane.id] ?? lane.muted,
+      })),
+    });
+    get().applyArrangementUntil(0);
+    return true;
+  },
+  stopArrangementPlayback: () => set({ playingArrangement: false }),
+  applyArrangementUntil: (untilCycle) => {
+    const state = get();
+    if (!state.playingArrangement) return false;
+    const { applied, nextIndex } = eventsDue(
+      state.arrangement.events,
+      state.nextEventIndex,
+      untilCycle,
+    );
+    if (!applied.length) return false;
+    let activeByLane = state.activeByLane;
+    let lanes = state.lanes;
+    for (const event of applied) {
+      const next = applyArrangementAction(activeByLane, lanes, event.action, state.scenes);
+      activeByLane = next.activeByLane;
+      lanes = next.lanes;
+    }
+    set({ activeByLane, lanes, nextEventIndex: nextIndex });
+    return true;
+  },
+  moveSection: (sectionId, startCycle) =>
+    set((state) => ({
+      arrangement: {
+        ...state.arrangement,
+        sections: clampSectionStart(
+          state.arrangement.sections,
+          sectionId,
+          startCycle,
+          state.arrangement.lengthCycles,
+        ),
+      },
+    })),
+  clearArrangement: () =>
+    set((state) => ({
+      capturing: false,
+      playingArrangement: false,
+      arrangement: emptyArrangement(state.lanes),
+    })),
+  importMidiScene: (parts, tempo) => {
+    if (!parts.length) return null;
+    const sceneId = get().addScene();
+    get().renameScene(sceneId, 'MIDI import');
+    if (tempo !== undefined) get().setTempo(tempo);
+    for (const part of parts) {
+      const lanes = get().lanes;
+      const laneId = lanes.some((lane) => lane.id === part.laneId) ? part.laneId : lanes[0]?.id;
+      if (!laneId) continue;
+      const clip = get().createClip(laneId, sceneId);
+      if (!clip) continue;
+      get().renameClip(clip.id, part.name);
+      get().updateClipCode(clip.id, part.code);
+    }
+    return sceneId;
+  },
+  importProjectFile: async (project) => {
+    await saveProject(projectFromState(get()));
+    const imported: PersistedSessionProject = {
+      ...project,
+      id: makeId('project'),
+      updatedAt: Date.now(),
+    };
+    await saveProject(imported);
+    set({
+      ...stateFromProject(imported),
+      ...runtimeDefaults,
+      projects: await listProjects(),
+      persistenceStatus: 'saved',
+      persistenceError: null,
+    });
+  },
   setPersistenceState: (persistenceStatus, persistenceError = null) =>
     set({ persistenceStatus, persistenceError }),
   setProjectSummaries: (projects) => set({ projects }),
@@ -476,4 +677,8 @@ export function startSessionPersistence(): () => void {
     if (saveTimer !== null) window.clearTimeout(saveTimer);
     saveTimer = null;
   };
+}
+
+export function snapshotProject(): PersistedSessionProject {
+  return projectFromState(useSessionStore.getState());
 }
