@@ -1,12 +1,9 @@
 import { create } from 'zustand';
 import {
-  DEFAULT_CLIPS,
   DEFAULT_LANES,
-  DEFAULT_SCENES,
   activateScene,
   clampLaneGain,
   emptyActiveClips,
-  normalizeLane,
   toggleSessionClip,
   type ActiveClips,
   type SessionClip,
@@ -21,7 +18,6 @@ import {
   defaultSections,
   emptyArrangement,
   eventsDue,
-  normalizeArrangement,
   type Arrangement,
   type ArrangementAction,
 } from './arrangement';
@@ -34,6 +30,10 @@ import {
   type PersistedSessionProject,
   type ProjectSummary,
 } from './persistence';
+import { freshProjectFromPack, freshProjectFromPackId } from '../library/apply-template';
+import { DEFAULT_STARTER_PACK } from '../library/starter-packs';
+import { normalizeLoadedProject } from './normalize-project';
+import type { SharePayload } from '../interchange/url-share';
 
 export type PersistenceStatus = 'loading' | 'saved' | 'saving' | 'error';
 
@@ -62,6 +62,7 @@ interface SessionStore {
   hydrate: () => Promise<void>;
   switchProject: (projectId: string) => Promise<void>;
   createProject: () => Promise<void>;
+  createProjectFromPack: (packId: string) => Promise<void>;
   duplicateProject: () => Promise<void>;
   deleteProject: () => Promise<void>;
   renameProject: (name: string) => void;
@@ -94,19 +95,9 @@ interface SessionStore {
   clearArrangement: () => void;
   importMidiScene: (parts: { laneId: string; name: string; code: string }[], tempo?: number) => string | null;
   importProjectFile: (project: PersistedSessionProject) => Promise<void>;
+  importSharePayload: (payload: SharePayload) => Promise<void>;
   setPersistenceState: (status: PersistenceStatus, error?: string | null) => void;
   setProjectSummaries: (projects: ProjectSummary[]) => void;
-}
-
-function cloneDefaults() {
-  const lanes = DEFAULT_LANES.map((lane) => ({ ...lane }));
-  return {
-    lanes,
-    clips: DEFAULT_CLIPS.map((clip) => ({ ...clip })),
-    scenes: DEFAULT_SCENES.map((scene) => ({ ...scene, clipIds: { ...scene.clipIds } })),
-    activeByLane: emptyActiveClips(DEFAULT_LANES),
-    arrangement: emptyArrangement(lanes),
-  };
 }
 
 function makeId(prefix: string): string {
@@ -116,17 +107,10 @@ function makeId(prefix: string): string {
 }
 
 function freshProject(name = 'Untitled session'): PersistedSessionProject {
-  return {
-    version: 1,
-    id: makeId('project'),
-    name,
-    tempo: 120,
-    launchQuantize: 'cycle',
-    ...cloneDefaults(),
-    selectedClipId: null,
-    updatedAt: Date.now(),
-  };
+  return freshProjectFromPack(DEFAULT_STARTER_PACK, name);
 }
+
+export { normalizeLoadedProject } from './normalize-project';
 
 function projectFromState(state: SessionStore): PersistedSessionProject {
   return {
@@ -151,57 +135,9 @@ function projectFromState(state: SessionStore): PersistedSessionProject {
   };
 }
 
-const VALID_QUANTIZE: SessionQuantize[] = ['immediate', 'beat', 'cycle'];
-
 function clampTempo(tempo: number): number {
   if (!Number.isFinite(tempo)) return 120;
   return Math.min(999, Math.max(20, Math.round(tempo)));
-}
-
-function validQuantize(value: SessionQuantize): SessionQuantize {
-  return VALID_QUANTIZE.includes(value) ? value : 'cycle';
-}
-
-/** Normalize persisted project data before hydrating store state. */
-export function normalizeLoadedProject(project: PersistedSessionProject) {
-  const base = {
-    projectId: project.id,
-    projectName: project.name,
-    tempo: clampTempo(project.tempo),
-    launchQuantize: validQuantize(project.launchQuantize),
-  };
-
-  if (!project.lanes.length) {
-    return { ...base, ...cloneDefaults(), selectedClipId: null };
-  }
-
-  const laneIds = new Set(project.lanes.map((lane) => lane.id));
-  const clips = project.clips.filter((clip) => laneIds.has(clip.laneId));
-  const clipIds = new Set(clips.map((clip) => clip.id));
-  const scenes = project.scenes.map((scene) => ({
-    ...scene,
-    clipIds: Object.fromEntries(
-      Object.entries(scene.clipIds).filter(
-        ([laneId, clipId]) => laneIds.has(laneId) && clipIds.has(clipId),
-      ),
-    ),
-  }));
-
-  return {
-    ...base,
-    lanes: project.lanes.map(normalizeLane),
-    clips,
-    scenes,
-    activeByLane: Object.fromEntries(
-      project.lanes.map((lane) => {
-        const active = project.activeByLane[lane.id];
-        return [lane.id, active && clipIds.has(active) ? active : null];
-      }),
-    ),
-    selectedClipId:
-      project.selectedClipId && clipIds.has(project.selectedClipId) ? project.selectedClipId : null,
-    arrangement: normalizeArrangement(project.arrangement, project.lanes.map(normalizeLane), clips, scenes),
-  };
 }
 
 function stateFromProject(project: PersistedSessionProject) {
@@ -291,6 +227,18 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   createProject: async () => {
     await saveProject(projectFromState(get()));
     const project = freshProject();
+    await saveProject(project);
+    set({
+      ...stateFromProject(project),
+      ...runtimeDefaults,
+      projects: await listProjects(),
+      persistenceStatus: 'saved',
+      persistenceError: null,
+    });
+  },
+  createProjectFromPack: async (packId) => {
+    await saveProject(projectFromState(get()));
+    const project = freshProjectFromPackId(packId);
     await saveProject(project);
     set({
       ...stateFromProject(project),
@@ -624,6 +572,45 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       projects: await listProjects(),
       persistenceStatus: 'saved',
       persistenceError: null,
+    });
+  },
+  importSharePayload: async (payload) => {
+    if (payload.kind === 'project') {
+      await get().importProjectFile({
+        ...payload.project,
+        version: 1,
+        id: makeId('project'),
+        updatedAt: Date.now(),
+      });
+      return;
+    }
+    const idMap = new Map(payload.clips.map((clip) => [clip.id, makeId('clip')]));
+    const clips = payload.clips.map((clip) => ({ ...clip, id: idMap.get(clip.id) ?? makeId('clip') }));
+    const scene = {
+      ...payload.scene,
+      id: makeId('scene'),
+      name: payload.name,
+      clipIds: Object.fromEntries(
+        Object.entries(payload.scene.clipIds).map(([laneId, clipId]) => [
+          laneId,
+          idMap.get(clipId) ?? clipId,
+        ]),
+      ),
+    };
+    const lanes = DEFAULT_LANES.map((lane) => ({ ...lane }));
+    await get().importProjectFile({
+      version: 1,
+      id: makeId('project'),
+      name: payload.name,
+      tempo: payload.tempo,
+      launchQuantize: 'cycle',
+      lanes,
+      clips,
+      scenes: [scene],
+      activeByLane: emptyActiveClips(lanes),
+      selectedClipId: null,
+      arrangement: emptyArrangement(lanes),
+      updatedAt: Date.now(),
     });
   },
   setPersistenceState: (persistenceStatus, persistenceError = null) =>

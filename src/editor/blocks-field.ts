@@ -1,5 +1,5 @@
 import { StateField, type Text } from '@codemirror/state';
-import { registry } from '../blocks/registry';
+import { getBlock } from '../blocks/registry';
 import { renderBlock } from '../blocks/render';
 import type { SlotValue } from '../blocks/protocol';
 
@@ -21,7 +21,7 @@ function parseBlocks(doc: Text): BlockInstance[] {
     const line = doc.line(i);
     const m = HEADER.exec(line.text);
     if (!m) continue;
-    const def = registry.get(m[1]);
+    const def = getBlock(m[1]);
     if (!def) continue; // unknown block id: leave as plain code
     let slots: Record<string, SlotValue>;
     try {

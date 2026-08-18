@@ -1,7 +1,7 @@
 import type { EditorView } from '@codemirror/view';
 import type { BlockInstance } from './blocks-field';
 import { blockEdit } from './enforce-locks';
-import { registry } from '../blocks/registry';
+import { getBlock } from '../blocks/registry';
 import { renderBlock } from '../blocks/render';
 import type { SlotValue } from '../blocks/protocol';
 
@@ -11,7 +11,7 @@ export function setSlot(
   key: string,
   value: SlotValue,
 ): void {
-  const def = registry.get(block.defId);
+  const def = getBlock(block.defId);
   if (!def) return;
   const next = { ...block.slots, [key]: value };
   const { text } = renderBlock(def, next);
@@ -23,7 +23,7 @@ export function setSlot(
 }
 
 export function insertBlock(view: EditorView, defId: string, pos?: number): void {
-  const def = registry.get(defId);
+  const def = getBlock(defId);
   if (!def) return;
   const slots = Object.fromEntries(def.slots.map((s) => [s.key, s.default])) as Record<
     string,

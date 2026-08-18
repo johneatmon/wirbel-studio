@@ -8,6 +8,7 @@ interface SessionWorkspaceProps {
   transportPlaying: boolean;
   onSessionChange: () => void;
   onEditClip: (clip: SessionClip) => void;
+  onBrowseTemplates?: () => void;
 }
 
 export function SessionWorkspace({
@@ -15,6 +16,7 @@ export function SessionWorkspace({
   transportPlaying,
   onSessionChange,
   onEditClip,
+  onBrowseTemplates,
 }: SessionWorkspaceProps) {
   const projectId = useSessionStore((state) => state.projectId);
   const projectName = useSessionStore((state) => state.projectName);
@@ -101,7 +103,9 @@ export function SessionWorkspace({
           </select>
           <button
             type="button"
-            onClick={() => runProjectAction(createProject)}
+            onClick={() =>
+              onBrowseTemplates ? onBrowseTemplates() : runProjectAction(createProject)
+            }
             disabled={!hydrated}
             className="rounded-md border border-neutral-800 px-2.5 py-1.5 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-300"
           >
@@ -282,7 +286,16 @@ export function SessionWorkspace({
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-neutral-600">
-                      {String(sceneIndex + 1).padStart(2, '0')}
+                      {sceneIndex < 9 ? (
+                        <>
+                          <kbd className="rounded bg-neutral-800 px-1 text-neutral-400">
+                            {sceneIndex + 1}
+                          </kbd>{' '}
+                          · {String(sceneIndex + 1).padStart(2, '0')}
+                        </>
+                      ) : (
+                        String(sceneIndex + 1).padStart(2, '0')
+                      )}
                     </span>
                     <button
                       type="button"

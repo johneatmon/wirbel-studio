@@ -16,15 +16,16 @@ The product direction and architectural decisions live in [DESIGN.md](./DESIGN.m
 - Hap-lane visualization aligned to session mixer rows, with tagged clip identity, plus a shared-clock oscilloscope underlay
 - Optional, idle-triggered Anthropic ghost text with Tab acceptance and locked-block suppression
 - Command palette (`Cmd/Ctrl + K`) with a riff command that auditions a complementary AI layer before insert
-- Session workspace with five lanes, two scenes, clock-quantized clip replacement, and per-lane stops
+- Session workspace with five lanes, clock-quantized clip replacement, and per-lane stops
 - A portable session compiler that renders active clips as ordinary `stack(...)` Strudel code
 - Versioned IndexedDB projects with autosave, project switching, new/duplicate flows, and reload restoration
 - Editable scene and clip names plus scene creation and clip create/duplicate/delete controls
 - Per-lane mixer (gain, mute, solo) and last-known-good clip error isolation during session playback
 - Jam capture to a scheduler-cycle arrangement with replay and a compact lane timeline
 - MIDI file import/export, copy-as-Strudel / strudel.cc links, and downloadable JSON project files
+- Starter library with scene templates, Studio URL sharing, onboarding hints, and importable community blocks
 
-The next product milestone adds a clip library, templates, URL sharing, and onboarding polish.
+The MVP milestone gate is a non-programmer creating and saving a structured jam in under five minutes.
 
 ## Run locally
 
@@ -53,8 +54,11 @@ pnpm build
 | `Cmd/Ctrl + Enter` | Evaluate immediately                           |
 | `Cmd/Ctrl + .`     | Stop playback                                  |
 | `Tab`              | Accept visible AI ghost text; otherwise indent |
-| `Cmd/Ctrl + K`     | Command palette (riff, insert block, share) |
-| `Cmd/Ctrl + Shift + R` | Start or stop jam capture                 |
+| `Cmd/Ctrl + K`     | Command palette (templates, blocks, share) |
+| `1`–`9`            | Launch scene by row (session workspace)    |
+| `Space`            | Toggle launch for selected clip            |
+| `Shift + Space`    | Stop the selected clip's lane              |
+| `Cmd/Ctrl + Shift + R` | Start or stop jam capture              |
 
 Session is the default workspace. Launching a clip replaces the active clip in its lane; launching a
 scene changes all populated lanes together at the selected quantize boundary. Use a clip's **edit**

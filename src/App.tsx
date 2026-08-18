@@ -4,7 +4,7 @@ import { evaluateCode, initEngine, setCps, stopEngine, tempoToCps, type Quantize
 import { startClockLoop } from './audio/clock';
 import { useAppStore } from './store/app-store';
 import { useClockStore } from './store/clock-store';
-import { registry } from './blocks/registry';
+import { allBlocks, refreshCommunityRegistry } from './blocks/registry';
 import { VisualCanvas } from './visuals/visual-canvas';
 import {
   loadGhostSettings,
@@ -16,14 +16,25 @@ import { SessionWorkspace } from './session/session-workspace';
 import { type SessionClip } from './session/model';
 import { evaluateActiveSession } from './session/eval-session';
 import { startArrangementPlayer } from './session/arrangement-player';
-import { startSessionPersistence, useSessionStore } from './session/session-store';
+import { startSessionPersistence, snapshotProject, useSessionStore } from './session/session-store';
 import { formatRiffInsert, requestRiffSuggestion } from './completions/ghost-client';
 import { CommandPalette, type CommandItem } from './ui/command-palette';
 import { RiffPreview } from './ui/riff-preview';
 import { InterchangePanel } from './interchange/interchange-panel';
 import { sessionPortableCode, strudelShareUrl } from './interchange/export-session';
+import {
+  buildShareUrl,
+  clearShareHash,
+  parseShareHash,
+  projectSharePayload,
+  shareUrlLength,
+  SHARE_URL_MAX,
+} from './interchange/url-share';
+import { OnboardingOverlay } from './ui/onboarding-overlay';
+import { isOnboardingComplete } from './ui/onboarding-state';
+import { LibraryPanel } from './ui/library-panel';
+import { CommunityBlocksPanel } from './ui/community-blocks-panel';
 
-const BLOCK_DEFS = [...registry.values()];
 
 const STARTER_CODE = `note("<c3 eb3 g3 bb3>*2")
   .s("sawtooth")
@@ -43,6 +54,12 @@ const QUANTIZE_OPTIONS: { value: QuantizeBoundary; label: string }[] = [
   { value: 'cycle', label: 'cycle' },
 ];
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+}
+
 function App() {
   const { ready, error, started, setReady, setEngineState, markEvaluated } = useAppStore();
   const { cycle, phase, cps, playing } = useClockStore();
@@ -56,6 +73,10 @@ function App() {
   });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [showInterchange, setShowInterchange] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [showCommunityBlocks, setShowCommunityBlocks] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboardingComplete());
+  const [blocksVersion, setBlocksVersion] = useState(0);
   const [riff, setRiff] = useState<{
     status: 'loading' | 'ready' | 'error';
     code: string;
@@ -77,6 +98,11 @@ function App() {
   const playingArrangement = useSessionStore((state) => state.playingArrangement);
   const arrangementLength = useSessionStore((state) => state.arrangement.lengthCycles);
   const hasActiveClip = useSessionStore((state) => Object.values(state.activeByLane).some(Boolean));
+  const hydrated = useSessionStore((state) => state.hydrated);
+  const scenes = useSessionStore((state) => state.scenes);
+  const shareHandledRef = useRef(false);
+  const blockDefs = allBlocks();
+  void blocksVersion;
 
   useEffect(() => {
     if (bootedRef.current) return;
@@ -93,6 +119,20 @@ function App() {
   }, [setEngineState, setReady]);
 
   useEffect(() => startSessionPersistence(), []);
+
+  useEffect(() => {
+    if (!hydrated || shareHandledRef.current) return;
+    const payload = parseShareHash();
+    if (!payload) return;
+    shareHandledRef.current = true;
+    void useSessionStore
+      .getState()
+      .importSharePayload(payload)
+      .then(() => clearShareHash())
+      .catch(() => {
+        shareHandledRef.current = false;
+      });
+  }, [hydrated]);
 
   useEffect(() => {
     useAppStore.getState().setQuantize(quantize);
@@ -245,12 +285,30 @@ function App() {
     handleEditorEvaluate(editorRef.current?.getCode() ?? '');
   }, [handleEditorEvaluate, riff]);
 
+  const launchFirstScene = useCallback(() => {
+    const session = useSessionStore.getState();
+    const sceneId = session.scenes[0]?.id;
+    if (!sceneId) return;
+    session.launchScene(sceneId);
+    void evaluateActiveSession(quantize, markEvaluated);
+  }, [markEvaluated, quantize]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         if (paletteOpen) {
           event.preventDefault();
           setPaletteOpen(false);
+          return;
+        }
+        if (showLibrary) {
+          event.preventDefault();
+          setShowLibrary(false);
+          return;
+        }
+        if (showCommunityBlocks) {
+          event.preventDefault();
+          setShowCommunityBlocks(false);
           return;
         }
         if (showInterchange) {
@@ -273,12 +331,51 @@ function App() {
         event.preventDefault();
         setShowSettings(false);
         setShowInterchange(false);
+        setShowLibrary(false);
+        setShowCommunityBlocks(false);
         setPaletteOpen((open) => !open);
+        return;
+      }
+      if (workspace !== 'session' || isTypingTarget(event.target)) return;
+      const session = useSessionStore.getState();
+      if (/^[1-9]$/.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const scene = session.scenes[Number(event.key) - 1];
+        if (!scene) return;
+        event.preventDefault();
+        session.launchScene(scene.id);
+        void evaluateActiveSession(quantize, markEvaluated);
+        return;
+      }
+      if (event.key === ' ' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        const clipId = session.selectedClipId;
+        if (!clipId) return;
+        if (event.shiftKey) {
+          const clip = session.clips.find((candidate) => candidate.id === clipId);
+          if (clip) {
+            session.stopLane(clip.laneId);
+            void evaluateActiveSession(quantize, markEvaluated);
+          }
+          return;
+        }
+        session.toggleClip(clipId);
+        void evaluateActiveSession(quantize, markEvaluated);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [paletteOpen, rejectRiff, riff, showInterchange, toggleCapture]);
+  }, [
+    markEvaluated,
+    paletteOpen,
+    quantize,
+    rejectRiff,
+    riff,
+    showCommunityBlocks,
+    showInterchange,
+    showLibrary,
+    toggleCapture,
+    workspace,
+  ]);
 
   const commandItems: CommandItem[] = [
     {
@@ -318,6 +415,25 @@ function App() {
       },
     },
     {
+      id: 'copy-studio-link',
+      label: 'Copy Studio share link',
+      run: () => {
+        const payload = projectSharePayload(snapshotProject());
+        if (shareUrlLength(payload) > SHARE_URL_MAX) return;
+        void navigator.clipboard.writeText(buildShareUrl(payload));
+      },
+    },
+    {
+      id: 'library',
+      label: 'New project from template',
+      run: () => setShowLibrary(true),
+    },
+    {
+      id: 'community-blocks',
+      label: 'Community blocks',
+      run: () => setShowCommunityBlocks(true),
+    },
+    {
       id: 'interchange',
       label: 'MIDI and project files',
       hint: 'Share',
@@ -330,7 +446,7 @@ function App() {
       disabled: !ready || !ghostSettings.apiKey,
       run: startRiff,
     },
-    ...BLOCK_DEFS.map((def) => ({
+    ...blockDefs.map((def) => ({
       id: `block-${def.id}`,
       label: `Insert ${def.name}`,
       hint: def.category,
@@ -472,7 +588,7 @@ function App() {
             <span className="text-neutral-500">scratch code</span>
           )}
           <span className="text-neutral-600">insert:</span>
-          {BLOCK_DEFS.map((def) => (
+          {blockDefs.map((def) => (
             <button
               key={def.id}
               type="button"
@@ -494,7 +610,15 @@ function App() {
               transportPlaying={playing}
               onSessionChange={handleSessionChange}
               onEditClip={handleEditClip}
+              onBrowseTemplates={() => setShowLibrary(true)}
             />
+            {showOnboarding && !hasActiveClip && hydrated && (
+              <OnboardingOverlay
+                sceneCount={scenes.length}
+                onLaunchFirst={launchFirstScene}
+                onDismiss={() => setShowOnboarding(false)}
+              />
+            )}
           </div>
           <div className={workspace === 'code' ? 'relative h-full' : 'hidden'}>
             <StrudelEditor
@@ -558,6 +682,35 @@ function App() {
 
       {paletteOpen && (
         <CommandPalette items={commandItems} onClose={() => setPaletteOpen(false)} />
+      )}
+
+      {showLibrary && (
+        <LibraryPanel
+          onClose={() => setShowLibrary(false)}
+          onCreateFromPack={(packId) => {
+            void useSessionStore
+              .getState()
+              .createProjectFromPack(packId)
+              .catch((error: unknown) =>
+                useSessionStore
+                  .getState()
+                  .setPersistenceState(
+                    'error',
+                    error instanceof Error ? error.message : String(error),
+                  ),
+              );
+          }}
+        />
+      )}
+
+      {showCommunityBlocks && (
+        <CommunityBlocksPanel
+          onClose={() => setShowCommunityBlocks(false)}
+          onBlocksChanged={() => {
+            refreshCommunityRegistry();
+            setBlocksVersion((version) => version + 1);
+          }}
+        />
       )}
 
       {showInterchange && (

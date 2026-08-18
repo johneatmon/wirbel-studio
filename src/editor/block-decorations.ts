@@ -1,7 +1,7 @@
 import { EditorView, Decoration, WidgetType } from '@codemirror/view';
 import { RangeSetBuilder, type EditorState, type Range } from '@codemirror/state';
 import { blocksField, type BlockInstance } from './blocks-field';
-import { registry } from '../blocks/registry';
+import { getBlock } from '../blocks/registry';
 import { ejectBlock } from './block-commands';
 import { SlotChipWidget } from './slot-chips';
 
@@ -21,7 +21,7 @@ class BlockHeaderWidget extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
-    const def = registry.get(this.block.defId);
+    const def = getBlock(this.block.defId);
     const bar = document.createElement('div');
     bar.className =
       'flex items-center justify-between gap-2 rounded-t bg-neutral-800 px-2 py-1 text-xs select-none';
@@ -58,7 +58,7 @@ class BlockHeaderWidget extends WidgetType {
 function buildDecorations(state: EditorState) {
   const decos: Range<Decoration>[] = [];
   for (const block of state.field(blocksField)) {
-    const def = registry.get(block.defId);
+    const def = getBlock(block.defId);
     const headerLine = state.doc.lineAt(block.from);
     decos.push(
       Decoration.replace({ widget: new BlockHeaderWidget(block), inclusive: false }).range(

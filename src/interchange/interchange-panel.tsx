@@ -5,6 +5,12 @@ import { loadPattern } from '../audio/engine';
 import { parseMidi, writeMidi } from './midi-file';
 import { hapsToMidiNotes, midiNotesToParts } from './midi-map';
 import { sessionPortableCode, strudelShareUrl } from './export-session';
+import {
+  buildShareUrl,
+  projectSharePayload,
+  shareUrlLength,
+  SHARE_URL_MAX,
+} from './url-share';
 import { parseProjectFile, serializeProject } from './project-file';
 
 function safeFilename(name: string, ext: string): string {
@@ -87,6 +93,32 @@ export function InterchangePanel({
             ×
           </button>
         </div>
+
+        <section className="space-y-2">
+          <h3 className="text-[10px] font-semibold tracking-[0.18em] text-neutral-600 uppercase">
+            Studio link
+          </h3>
+          <button
+            type="button"
+            disabled={busy || !hydrated}
+            onClick={() =>
+              void run(async () => {
+                const payload = projectSharePayload(snapshotProject());
+                if (shareUrlLength(payload) > SHARE_URL_MAX) {
+                  throw new Error(
+                    'Project link is too long for a URL — download the JSON project file instead.',
+                  );
+                }
+                const url = buildShareUrl(payload);
+                await navigator.clipboard.writeText(url);
+                report('Copied Studio share link. Opening this URL imports the project.');
+              })
+            }
+            className="rounded bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+          >
+            Copy Studio link
+          </button>
+        </section>
 
         <section className="space-y-2">
           <h3 className="text-[10px] font-semibold tracking-[0.18em] text-neutral-600 uppercase">
