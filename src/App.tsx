@@ -76,6 +76,7 @@ function App() {
   const [showLibrary, setShowLibrary] = useState(false);
   const [showCommunityBlocks, setShowCommunityBlocks] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !isOnboardingComplete());
+  const [showVisualizer, setShowVisualizer] = useState(true);
   const [blocksVersion, setBlocksVersion] = useState(0);
   const [riff, setRiff] = useState<{
     status: 'loading' | 'ready' | 'error';
@@ -424,6 +425,11 @@ function App() {
       },
     },
     {
+      id: 'toggle-visualizer',
+      label: showVisualizer ? 'Hide hap lane' : 'Show hap lane',
+      run: () => setShowVisualizer((open) => !open),
+    },
+    {
       id: 'library',
       label: 'New project from template',
       run: () => setShowLibrary(true),
@@ -545,6 +551,19 @@ function App() {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowVisualizer((open) => !open)}
+          aria-pressed={showVisualizer}
+          className={`rounded px-2 py-1 text-xs ${
+            showVisualizer
+              ? 'bg-neutral-800 text-neutral-200'
+              : 'text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200'
+          }`}
+          title={showVisualizer ? 'Hide hap lane' : 'Show hap lane'}
+        >
+          Lane
+        </button>
         <span className="text-neutral-500">strudel studio</span>
         <button
           type="button"
@@ -603,7 +622,7 @@ function App() {
       )}
 
       <main className="flex min-h-0 flex-1">
-        <div className="min-h-0 flex-1 border-r border-neutral-800">
+        <div className={`min-h-0 flex-1 ${showVisualizer ? 'border-r border-neutral-800' : ''}`}>
           <div className={workspace === 'session' ? 'h-full' : 'hidden'}>
             <SessionWorkspace
               disabled={!ready}
@@ -645,9 +664,30 @@ function App() {
             )}
           </div>
         </div>
-        <div className="w-80 shrink-0 bg-neutral-950">
-          <VisualCanvas />
-        </div>
+        {showVisualizer ? (
+          <aside className="relative w-80 shrink-0 bg-neutral-950" aria-label="Hap lane">
+            <button
+              type="button"
+              onClick={() => setShowVisualizer(false)}
+              className="absolute top-2 left-2 z-10 rounded bg-neutral-900/80 px-1.5 py-0.5 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+              aria-label="Hide hap lane"
+              title="Hide hap lane"
+            >
+              ›
+            </button>
+            <VisualCanvas />
+          </aside>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowVisualizer(true)}
+            className="flex w-7 shrink-0 items-start justify-center border-l border-neutral-800 bg-neutral-950 pt-2 text-xs text-neutral-500 hover:bg-neutral-900 hover:text-neutral-200"
+            aria-label="Show hap lane"
+            title="Show hap lane"
+          >
+            ‹
+          </button>
+        )}
       </main>
 
       <footer className="flex items-center border-t border-neutral-800 px-4 py-1.5 text-xs">
