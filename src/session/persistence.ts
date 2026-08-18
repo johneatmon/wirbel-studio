@@ -120,6 +120,23 @@ export async function listProjects(): Promise<ProjectSummary[]> {
   }
 }
 
+export async function deleteProject(id: string): Promise<void> {
+  const database = await openDatabase();
+  try {
+    const meta = (await requestResult(
+      database.transaction(META_STORE).objectStore(META_STORE).get(ACTIVE_PROJECT_KEY),
+    )) as MetaRecord | undefined;
+    const transaction = database.transaction([PROJECTS_STORE, META_STORE], 'readwrite');
+    transaction.objectStore(PROJECTS_STORE).delete(id);
+    if (meta?.value === id) {
+      transaction.objectStore(META_STORE).delete(ACTIVE_PROJECT_KEY);
+    }
+    await transactionDone(transaction);
+  } finally {
+    database.close();
+  }
+}
+
 export async function loadActiveProject(): Promise<PersistedSessionProject | null> {
   const database = await openDatabase();
   try {

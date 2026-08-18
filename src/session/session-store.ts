@@ -13,6 +13,7 @@ import {
   type SessionScene,
 } from './model';
 import {
+  deleteProject as deleteProjectRecord,
   listProjects,
   loadActiveProject,
   loadProject,
@@ -41,7 +42,9 @@ interface SessionStore {
   switchProject: (projectId: string) => Promise<void>;
   createProject: () => Promise<void>;
   duplicateProject: () => Promise<void>;
+  deleteProject: () => Promise<void>;
   renameProject: (name: string) => void;
+  setTempo: (tempo: number) => void;
   setLaunchQuantize: (quantize: SessionQuantize) => void;
   toggleClip: (clipId: string) => ActiveClips;
   stopLane: (laneId: string) => ActiveClips;
@@ -103,17 +106,47 @@ function projectFromState(state: SessionStore): PersistedSessionProject {
   };
 }
 
-function stateFromProject(project: PersistedSessionProject) {
-  const laneIds = new Set(project.lanes.map((lane) => lane.id));
-  const clipIds = new Set(project.clips.map((clip) => clip.id));
-  return {
+const VALID_QUANTIZE: SessionQuantize[] = ['immediate', 'beat', 'cycle'];
+
+function clampTempo(tempo: number): number {
+  if (!Number.isFinite(tempo)) return 120;
+  return Math.min(999, Math.max(20, Math.round(tempo)));
+}
+
+function validQuantize(value: SessionQuantize): SessionQuantize {
+  return VALID_QUANTIZE.includes(value) ? value : 'cycle';
+}
+
+/** Normalize persisted project data before hydrating store state. */
+export function normalizeLoadedProject(project: PersistedSessionProject) {
+  const base = {
     projectId: project.id,
     projectName: project.name,
-    tempo: Number.isFinite(project.tempo) ? project.tempo : 120,
-    launchQuantize: project.launchQuantize,
+    tempo: clampTempo(project.tempo),
+    launchQuantize: validQuantize(project.launchQuantize),
+  };
+
+  if (!project.lanes.length) {
+    return { ...base, ...cloneDefaults(), selectedClipId: null };
+  }
+
+  const laneIds = new Set(project.lanes.map((lane) => lane.id));
+  const clips = project.clips.filter((clip) => laneIds.has(clip.laneId));
+  const clipIds = new Set(clips.map((clip) => clip.id));
+  const scenes = project.scenes.map((scene) => ({
+    ...scene,
+    clipIds: Object.fromEntries(
+      Object.entries(scene.clipIds).filter(
+        ([laneId, clipId]) => laneIds.has(laneId) && clipIds.has(clipId),
+      ),
+    ),
+  }));
+
+  return {
+    ...base,
     lanes: project.lanes,
-    clips: project.clips,
-    scenes: project.scenes,
+    clips,
+    scenes,
     activeByLane: Object.fromEntries(
       project.lanes.map((lane) => {
         const active = project.activeByLane[lane.id];
@@ -122,9 +155,11 @@ function stateFromProject(project: PersistedSessionProject) {
     ),
     selectedClipId:
       project.selectedClipId && clipIds.has(project.selectedClipId) ? project.selectedClipId : null,
-    // Drop malformed clips/scenes that refer to lanes which no longer exist.
-    ...(laneIds.size ? {} : cloneDefaults()),
   };
+}
+
+function stateFromProject(project: PersistedSessionProject) {
+  return normalizeLoadedProject(project);
 }
 
 const initial = freshProject();
@@ -197,7 +232,34 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       persistenceError: null,
     });
   },
+  deleteProject: async () => {
+    const { projectId } = get();
+    const others = (await listProjects()).filter((project) => project.id !== projectId);
+    await deleteProjectRecord(projectId);
+    if (others.length === 0) {
+      const project = freshProject();
+      await saveProject(project);
+      set({
+        ...stateFromProject(project),
+        projects: await listProjects(),
+        persistenceStatus: 'saved',
+        persistenceError: null,
+      });
+      return;
+    }
+    const next = await loadProject(others[0].id);
+    if (!next) return;
+    const activated = { ...next, updatedAt: Date.now() };
+    await saveProject(activated);
+    set({
+      ...stateFromProject(activated),
+      projects: await listProjects(),
+      persistenceStatus: 'saved',
+      persistenceError: null,
+    });
+  },
   renameProject: (projectName) => set({ projectName }),
+  setTempo: (tempo) => set({ tempo: clampTempo(tempo) }),
   setLaunchQuantize: (launchQuantize) => set({ launchQuantize }),
   toggleClip: (clipId) => {
     const state = get();

@@ -8,6 +8,9 @@ import {
   type StrudelRepl,
 } from '@strudel/web';
 import type { Pattern } from '@strudel/core';
+import { BEATS_PER_CYCLE, tempoToCps } from './tempo';
+
+export { BEATS_PER_CYCLE, tempoToCps };
 
 export interface EngineState {
   started: boolean;
@@ -16,9 +19,6 @@ export interface EngineState {
 }
 
 export type QuantizeBoundary = 'immediate' | 'beat' | 'cycle';
-
-/** Display convention only — Strudel has no native "beat" unit, cps is cycles/sec. */
-export const BEATS_PER_CYCLE = 4;
 
 let repl: StrudelRepl | null = null;
 let initPromise: Promise<StrudelRepl> | null = null;
@@ -131,6 +131,10 @@ export function cancelPendingEval(): void {
 export function stopEngine(): void {
   cancelPendingEval();
   repl?.stop();
+}
+
+export function setCps(cps: number): void {
+  if (repl) repl.scheduler.cps = cps;
 }
 
 export function getRepl(): StrudelRepl | null {

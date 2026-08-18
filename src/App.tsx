@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StrudelEditor, type StrudelEditorHandle } from './editor/editor';
-import { evaluateCode, initEngine, stopEngine, type QuantizeBoundary } from './audio/engine';
+import { evaluateCode, initEngine, setCps, stopEngine, tempoToCps, type QuantizeBoundary } from './audio/engine';
 import { startClockLoop } from './audio/clock';
 import { useAppStore } from './store/app-store';
 import { useClockStore } from './store/clock-store';
@@ -51,6 +51,7 @@ function App() {
   const editorRef = useRef<StrudelEditorHandle>(null);
   const selectedClipId = useSessionStore((state) => state.selectedClipId);
   const projectId = useSessionStore((state) => state.projectId);
+  const tempo = useSessionStore((state) => state.tempo);
   const quantize = useSessionStore((state) => state.launchQuantize);
   const setLaunchQuantize = useSessionStore((state) => state.setLaunchQuantize);
   const selectedClip = useSessionStore((state) =>
@@ -76,6 +77,11 @@ function App() {
   useEffect(() => {
     useAppStore.getState().setQuantize(quantize);
   }, [quantize]);
+
+  useEffect(() => {
+    if (!ready) return;
+    setCps(tempoToCps(tempo));
+  }, [ready, tempo, projectId]);
 
   useEffect(() => {
     stopEngine();

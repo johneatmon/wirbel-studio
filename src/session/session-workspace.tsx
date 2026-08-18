@@ -17,6 +17,7 @@ export function SessionWorkspace({
 }: SessionWorkspaceProps) {
   const projectId = useSessionStore((state) => state.projectId);
   const projectName = useSessionStore((state) => state.projectName);
+  const tempo = useSessionStore((state) => state.tempo);
   const projects = useSessionStore((state) => state.projects);
   const hydrated = useSessionStore((state) => state.hydrated);
   const persistenceStatus = useSessionStore((state) => state.persistenceStatus);
@@ -41,8 +42,11 @@ export function SessionWorkspace({
   const switchProject = useSessionStore((state) => state.switchProject);
   const createProject = useSessionStore((state) => state.createProject);
   const duplicateProject = useSessionStore((state) => state.duplicateProject);
+  const deleteProject = useSessionStore((state) => state.deleteProject);
+  const setTempo = useSessionStore((state) => state.setTempo);
   const setPersistenceState = useSessionStore((state) => state.setPersistenceState);
   const [deleteCandidate, setDeleteCandidate] = useState<SessionClip | null>(null);
+  const [deleteProjectOpen, setDeleteProjectOpen] = useState(false);
 
   const selectedClip = clips.find((clip) => clip.id === selectedClipId) ?? null;
   const activeLayerCount = Object.values(activeByLane).filter(Boolean).length;
@@ -106,6 +110,28 @@ export function SessionWorkspace({
           >
             Duplicate
           </button>
+          <button
+            type="button"
+            onClick={() => setDeleteProjectOpen(true)}
+            disabled={!hydrated}
+            className="rounded-md border border-neutral-800 px-2.5 py-1.5 text-neutral-600 hover:border-red-900/60 hover:bg-red-950/30 hover:text-red-400"
+          >
+            Delete
+          </button>
+          <label className="flex items-center gap-1 text-neutral-500">
+            <span className="text-neutral-600">tempo</span>
+            <input
+              type="number"
+              min={20}
+              max={999}
+              value={tempo}
+              onChange={(event) => setTempo(Number(event.target.value))}
+              aria-label="Project tempo in BPM"
+              disabled={!hydrated}
+              className="w-14 rounded-md border border-neutral-800 bg-neutral-900 px-1.5 py-1.5 text-center text-neutral-300 outline-none hover:border-neutral-700 focus:border-neutral-600"
+            />
+            <span className="text-neutral-600">bpm</span>
+          </label>
           <span className={persistenceStatus === 'error' ? 'text-red-400' : 'text-neutral-600'}>
             {persistenceStatus === 'saving'
               ? 'saving…'
@@ -342,6 +368,39 @@ export function SessionWorkspace({
           Clip changes use transport quantize · one clip per lane
         </span>
       </div>
+
+      {deleteProjectOpen && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-6">
+          <div className="w-full max-w-sm rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-2xl">
+            <h2 className="text-sm font-medium text-neutral-100">Delete project?</h2>
+            <p className="mt-2 text-xs leading-relaxed text-neutral-500">
+              “{projectName || 'Untitled session'}” will be removed from this browser.{' '}
+              {projects.length > 1
+                ? 'Another saved project will open.'
+                : 'A fresh empty project will be created.'}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteProjectOpen(false)}
+                className="rounded px-3 py-1.5 text-xs text-neutral-400 hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteProjectOpen(false);
+                  runProjectAction(deleteProject);
+                }}
+                className="rounded bg-red-800 px-3 py-1.5 text-xs text-white hover:bg-red-700"
+              >
+                Delete project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteCandidate && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-6">
