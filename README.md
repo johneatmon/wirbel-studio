@@ -17,9 +17,11 @@ The product direction and architectural decisions live in [DESIGN.md](./DESIGN.m
 - Optional, idle-triggered Anthropic ghost text with Tab acceptance and locked-block suppression
 - Session workspace with five lanes, two scenes, clock-quantized clip replacement, and per-lane stops
 - A portable session compiler that renders active clips as ordinary `stack(...)` Strudel code
+- Versioned IndexedDB projects with autosave, project switching, new/duplicate flows, and reload restoration
+- Editable scene and clip names plus scene creation and clip create/duplicate/delete controls
 
-The next product milestone adds persistent clip editing and a lane mixer, followed by capturing a jam
-into an arrangement and MIDI file interchange.
+The next product milestone adds a lane mixer and last-known-good error isolation, followed by
+capturing a jam into an arrangement and MIDI file interchange.
 
 ## Run locally
 

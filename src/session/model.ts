@@ -1,4 +1,5 @@
 export type LaneRole = 'drums' | 'bass' | 'harmony' | 'melody' | 'texture' | 'fx';
+export type SessionQuantize = 'immediate' | 'beat' | 'cycle';
 
 export interface SessionLane {
   id: string;

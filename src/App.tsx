@@ -14,7 +14,7 @@ import {
 import type { GhostStatus } from './editor/ghost-text';
 import { SessionWorkspace } from './session/session-workspace';
 import { compileSession, type SessionClip } from './session/model';
-import { useSessionStore } from './session/session-store';
+import { startSessionPersistence, useSessionStore } from './session/session-store';
 
 const BLOCK_DEFS = [...registry.values()];
 
@@ -37,8 +37,7 @@ const QUANTIZE_OPTIONS: { value: QuantizeBoundary; label: string }[] = [
 ];
 
 function App() {
-  const { ready, error, started, quantize, setReady, setEngineState, markEvaluated, setQuantize } =
-    useAppStore();
+  const { ready, error, started, setReady, setEngineState, markEvaluated } = useAppStore();
   const { cycle, phase, cps, playing } = useClockStore();
   const [evaluating, setEvaluating] = useState(false);
   const [hasEvaluated, setHasEvaluated] = useState(false);
@@ -51,6 +50,9 @@ function App() {
   const bootedRef = useRef(false);
   const editorRef = useRef<StrudelEditorHandle>(null);
   const selectedClipId = useSessionStore((state) => state.selectedClipId);
+  const projectId = useSessionStore((state) => state.projectId);
+  const quantize = useSessionStore((state) => state.launchQuantize);
+  const setLaunchQuantize = useSessionStore((state) => state.setLaunchQuantize);
   const selectedClip = useSessionStore((state) =>
     state.clips.find((clip) => clip.id === state.selectedClipId),
   );
@@ -68,6 +70,16 @@ function App() {
         setEngineState({ started: false, pattern: null, error: bootError });
       });
   }, [setEngineState, setReady]);
+
+  useEffect(() => startSessionPersistence(), []);
+
+  useEffect(() => {
+    useAppStore.getState().setQuantize(quantize);
+  }, [quantize]);
+
+  useEffect(() => {
+    stopEngine();
+  }, [projectId]);
 
   const handleEvaluate = useCallback(
     async (code: string, boundary: QuantizeBoundary) => {
@@ -185,7 +197,7 @@ function App() {
             <button
               key={opt.value}
               type="button"
-              onClick={() => setQuantize(opt.value)}
+              onClick={() => setLaunchQuantize(opt.value)}
               className={`rounded px-2 py-1 ${
                 quantize === opt.value
                   ? 'bg-neutral-700 text-neutral-100'
@@ -257,6 +269,7 @@ function App() {
           <div className={workspace === 'session' ? 'h-full' : 'hidden'}>
             <SessionWorkspace
               disabled={!ready}
+              transportPlaying={playing}
               onCompositionChange={handleSessionComposition}
               onEditClip={handleEditClip}
             />
