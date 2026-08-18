@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+:root {
+  --phase: 0;
+  --beat: 0;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+
+.cm-ghost-text {
+  color: rgb(115 115 115 / 0.72);
+  pointer-events: none;
+  white-space: pre;
+}
+
+@keyframes eval-flash {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.eval-flash {
+  animation: eval-flash 250ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eval-flash {
+    animation: none;
+  }
+}
