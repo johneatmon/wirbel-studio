@@ -13,7 +13,8 @@ import {
 } from './completions/ghost-settings';
 import type { GhostStatus } from './editor/ghost-text';
 import { SessionWorkspace } from './session/session-workspace';
-import { compileSession, type SessionClip } from './session/model';
+import { type SessionClip } from './session/model';
+import { evaluateActiveSession } from './session/eval-session';
 import { startSessionPersistence, useSessionStore } from './session/session-store';
 
 const BLOCK_DEFS = [...registry.values()];
@@ -112,21 +113,15 @@ function App() {
         ? 'ok'
         : 'idle';
 
+  const handleSessionChange = useCallback(() => {
+    if (!ready) return;
+    void evaluateActiveSession(quantize, markEvaluated);
+  }, [ready, quantize, markEvaluated]);
+
   const handleStop = useCallback(() => {
     useSessionStore.getState().stopAll();
     stopEngine();
   }, []);
-
-  const handleSessionComposition = useCallback(
-    (code: string | null) => {
-      if (!code) {
-        stopEngine();
-        return;
-      }
-      void handleEvaluate(code, quantize);
-    },
-    [handleEvaluate, quantize],
-  );
 
   const handleEditClip = useCallback((clip: SessionClip) => {
     editorRef.current?.setCode(clip.code);
@@ -139,13 +134,12 @@ function App() {
       const selectedIsActive =
         selectedClipId !== null && Object.values(session.activeByLane).includes(selectedClipId);
       if (selectedIsActive) {
-        const sessionCode = compileSession(session.lanes, session.clips, session.activeByLane);
-        void handleEvaluate(sessionCode ?? code, 'immediate');
+        void evaluateActiveSession('immediate', markEvaluated);
         return;
       }
       void handleEvaluate(code, 'immediate');
     },
-    [handleEvaluate, selectedClipId],
+    [handleEvaluate, markEvaluated, selectedClipId],
   );
 
   const handleTransportEvaluate = useCallback(() => {
@@ -155,12 +149,11 @@ function App() {
     }
 
     const session = useSessionStore.getState();
-    const active = Object.values(session.activeByLane).some(Boolean)
-      ? session.activeByLane
-      : session.launchScene(session.scenes[0]?.id ?? '');
-    const code = compileSession(session.lanes, session.clips, active);
-    if (code) void handleEvaluate(code, quantize);
-  }, [handleEditorEvaluate, handleEvaluate, quantize, workspace]);
+    if (!Object.values(session.activeByLane).some(Boolean)) {
+      session.launchScene(session.scenes[0]?.id ?? '');
+    }
+    handleSessionChange();
+  }, [handleEditorEvaluate, handleSessionChange, workspace]);
 
   const handleSaveSettings = useCallback((settings: GhostSettings) => {
     saveGhostSettings(settings);
@@ -276,7 +269,7 @@ function App() {
             <SessionWorkspace
               disabled={!ready}
               transportPlaying={playing}
-              onCompositionChange={handleSessionComposition}
+              onSessionChange={handleSessionChange}
               onEditClip={handleEditClip}
             />
           </div>

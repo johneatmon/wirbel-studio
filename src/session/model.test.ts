@@ -10,8 +10,8 @@ import {
 } from './model';
 
 const lanes: SessionLane[] = [
-  { id: 'drums', name: 'Drums', role: 'drums', gain: 1, muted: false },
-  { id: 'bass', name: 'Bass', role: 'bass', gain: 0.5, muted: false },
+  { id: 'drums', name: 'Drums', role: 'drums', gain: 1, muted: false, solo: false },
+  { id: 'bass', name: 'Bass', role: 'bass', gain: 0.5, muted: false, solo: false },
 ];
 const clips: SessionClip[] = [
   { id: 'drums-a', laneId: 'drums', name: 'Beat A', code: 's("bd*4");', color: '#fff' },
@@ -55,6 +55,15 @@ describe('compileSession', () => {
   it('omits muted lanes', () => {
     const muted = lanes.map((lane) => (lane.id === 'drums' ? { ...lane, muted: true } : lane));
     const code = compileSession(muted, clips, { drums: 'drums-a', bass: 'bass-a' });
+    expect(code).not.toContain('bd*4');
+    expect(code).toContain('c2');
+  });
+
+  it('plays only soloed lanes when any lane is soloed', () => {
+    const soloed = lanes.map((lane) =>
+      lane.id === 'bass' ? { ...lane, solo: true } : { ...lane, solo: false },
+    );
+    const code = compileSession(soloed, clips, { drums: 'drums-a', bass: 'bass-a' });
     expect(code).not.toContain('bd*4');
     expect(code).toContain('c2');
   });

@@ -137,6 +137,21 @@ export function setCps(cps: number): void {
   if (repl) repl.scheduler.cps = cps;
 }
 
+/** Transpile and build a pattern without disturbing playback. */
+export async function tryEvaluateExpression(
+  code: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!repl) return { ok: false, error: 'Engine not initialized' };
+  try {
+    await repl.evaluate(code, false);
+    const err = repl.state.evalError;
+    if (err) return { ok: false, error: err.message };
+    return { ok: true };
+  } catch (reason) {
+    return { ok: false, error: reason instanceof Error ? reason.message : String(reason) };
+  }
+}
+
 export function getRepl(): StrudelRepl | null {
   return repl;
 }

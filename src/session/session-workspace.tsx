@@ -1,18 +1,18 @@
 import { useState } from 'react';
-import { compileSession, type ActiveClips, type SessionClip } from './model';
+import type { SessionClip } from './model';
 import { useSessionStore } from './session-store';
 
 interface SessionWorkspaceProps {
   disabled?: boolean;
   transportPlaying: boolean;
-  onCompositionChange: (code: string | null) => void;
+  onSessionChange: () => void;
   onEditClip: (clip: SessionClip) => void;
 }
 
 export function SessionWorkspace({
   disabled = false,
   transportPlaying,
-  onCompositionChange,
+  onSessionChange,
   onEditClip,
 }: SessionWorkspaceProps) {
   const projectId = useSessionStore((state) => state.projectId);
@@ -23,6 +23,7 @@ export function SessionWorkspace({
   const persistenceStatus = useSessionStore((state) => state.persistenceStatus);
   const persistenceError = useSessionStore((state) => state.persistenceError);
   const lanes = useSessionStore((state) => state.lanes);
+  const laneErrors = useSessionStore((state) => state.laneErrors);
   const clips = useSessionStore((state) => state.clips);
   const scenes = useSessionStore((state) => state.scenes);
   const activeByLane = useSessionStore((state) => state.activeByLane);
@@ -44,6 +45,9 @@ export function SessionWorkspace({
   const duplicateProject = useSessionStore((state) => state.duplicateProject);
   const deleteProject = useSessionStore((state) => state.deleteProject);
   const setTempo = useSessionStore((state) => state.setTempo);
+  const setLaneGain = useSessionStore((state) => state.setLaneGain);
+  const toggleLaneMute = useSessionStore((state) => state.toggleLaneMute);
+  const toggleLaneSolo = useSessionStore((state) => state.toggleLaneSolo);
   const setPersistenceState = useSessionStore((state) => state.setPersistenceState);
   const [deleteCandidate, setDeleteCandidate] = useState<SessionClip | null>(null);
   const [deleteProjectOpen, setDeleteProjectOpen] = useState(false);
@@ -51,7 +55,7 @@ export function SessionWorkspace({
   const selectedClip = clips.find((clip) => clip.id === selectedClipId) ?? null;
   const activeLayerCount = Object.values(activeByLane).filter(Boolean).length;
   const launchDisabled = disabled || !hydrated;
-  const emit = (next: ActiveClips) => onCompositionChange(compileSession(lanes, clips, next));
+  const requestEval = () => onSessionChange();
   const runProjectAction = (action: () => Promise<void>) => {
     void action().catch((error: unknown) =>
       setPersistenceState('error', error instanceof Error ? error.message : String(error)),
@@ -147,7 +151,10 @@ export function SessionWorkspace({
           </span>
           <button
             type="button"
-            onClick={() => emit(stopAll())}
+            onClick={() => {
+              stopAll();
+              requestEval();
+            }}
             disabled={launchDisabled || activeLayerCount === 0}
             className="rounded-md border border-neutral-800 px-2.5 py-1.5 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-300 disabled:opacity-30"
           >
@@ -155,6 +162,19 @@ export function SessionWorkspace({
           </button>
         </div>
       </div>
+
+      {Object.keys(laneErrors).length > 0 && (
+        <div className="border-b border-amber-950/60 bg-amber-950/20 px-5 py-1.5 text-[10px] text-amber-400">
+          {Object.entries(laneErrors).map(([laneId, message]) => {
+            const lane = lanes.find((candidate) => candidate.id === laneId);
+            return (
+              <span key={laneId} className="mr-4">
+                {lane?.name ?? laneId}: {message} (playing last-known-good)
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {persistenceError && (
         <div className="border-b border-red-950/60 bg-red-950/20 px-5 py-1.5 text-[10px] text-red-400">
@@ -170,17 +190,81 @@ export function SessionWorkspace({
           <div className="flex items-end px-2 pb-2 text-[10px] font-semibold tracking-wider text-neutral-600 uppercase">
             Scenes
           </div>
-          {lanes.map((lane) => (
-            <div key={lane.id} className="flex items-end justify-between px-2 pb-2">
-              <div>
-                <div className="text-xs font-medium text-neutral-300">{lane.name}</div>
-                <div className="mt-0.5 text-[10px] text-neutral-600">{lane.role}</div>
+          {lanes.map((lane) => {
+            const laneError = laneErrors[lane.id];
+            return (
+              <div key={lane.id} className="flex flex-col gap-1.5 px-1 pb-2">
+                <div className="flex items-end justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <div className="text-xs font-medium text-neutral-300">{lane.name}</div>
+                      {laneError && (
+                        <span
+                          className="text-[10px] text-amber-500"
+                          title={`${laneError} — last-known-good clip is playing`}
+                        >
+                          ⚠
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-neutral-600">{lane.role}</div>
+                  </div>
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${activeByLane[lane.id] ? 'bg-emerald-400' : 'bg-neutral-800'}`}
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toggleLaneMute(lane.id);
+                      requestEval();
+                    }}
+                    disabled={!hydrated}
+                    aria-pressed={lane.muted}
+                    aria-label={`${lane.muted ? 'Unmute' : 'Mute'} ${lane.name}`}
+                    className={`rounded px-1.5 py-0.5 text-[10px] disabled:opacity-40 ${
+                      lane.muted
+                        ? 'bg-neutral-700 text-neutral-200'
+                        : 'text-neutral-600 hover:bg-neutral-800 hover:text-neutral-300'
+                    }`}
+                  >
+                    M
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toggleLaneSolo(lane.id);
+                      requestEval();
+                    }}
+                    disabled={!hydrated}
+                    aria-pressed={lane.solo}
+                    aria-label={`${lane.solo ? 'Unsolo' : 'Solo'} ${lane.name}`}
+                    className={`rounded px-1.5 py-0.5 text-[10px] disabled:opacity-40 ${
+                      lane.solo
+                        ? 'bg-amber-900/70 text-amber-200'
+                        : 'text-neutral-600 hover:bg-neutral-800 hover:text-neutral-300'
+                    }`}
+                  >
+                    S
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={lane.gain}
+                    onChange={(event) => setLaneGain(lane.id, Number(event.target.value))}
+                    onPointerUp={() => requestEval()}
+                    onKeyUp={() => requestEval()}
+                    disabled={!hydrated}
+                    aria-label={`${lane.name} gain`}
+                    className="h-1 min-w-0 flex-1 accent-emerald-500"
+                  />
+                </div>
               </div>
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${activeByLane[lane.id] ? 'bg-emerald-400' : 'bg-neutral-800'}`}
-              />
-            </div>
-          ))}
+            );
+          })}
 
           {scenes.map((scene, sceneIndex) => {
             const sceneIsActive = lanes.every(
@@ -201,7 +285,10 @@ export function SessionWorkspace({
                     </span>
                     <button
                       type="button"
-                      onClick={() => emit(launchScene(scene.id))}
+                      onClick={() => {
+                        launchScene(scene.id);
+                        requestEval();
+                      }}
                       disabled={launchDisabled}
                       className={`rounded px-1.5 py-0.5 text-xs disabled:opacity-40 ${
                         sceneIsActive
@@ -260,7 +347,10 @@ export function SessionWorkspace({
                     >
                       <button
                         type="button"
-                        onClick={() => emit(toggleClip(clip.id))}
+                        onClick={() => {
+                          toggleClip(clip.id);
+                          requestEval();
+                        }}
                         onFocus={() => selectClip(clip.id)}
                         disabled={launchDisabled}
                         className="flex h-full min-h-24 w-full flex-col items-start justify-between p-3 text-left disabled:opacity-40"
@@ -311,7 +401,10 @@ export function SessionWorkspace({
             <button
               key={lane.id}
               type="button"
-              onClick={() => emit(stopLane(lane.id))}
+              onClick={() => {
+                stopLane(lane.id);
+                requestEval();
+              }}
               disabled={launchDisabled || !activeByLane[lane.id]}
               className="rounded-md border border-neutral-900 py-2 text-[10px] text-neutral-600 hover:border-neutral-800 hover:bg-neutral-900 hover:text-neutral-400 disabled:opacity-25"
             >

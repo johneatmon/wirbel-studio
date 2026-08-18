@@ -4,7 +4,9 @@ import {
   DEFAULT_LANES,
   DEFAULT_SCENES,
   activateScene,
+  clampLaneGain,
   emptyActiveClips,
+  normalizeLane,
   toggleSessionClip,
   type ActiveClips,
   type SessionClip,
@@ -38,6 +40,8 @@ interface SessionStore {
   hydrated: boolean;
   persistenceStatus: PersistenceStatus;
   persistenceError: string | null;
+  lastGoodByClipId: Record<string, string>;
+  laneErrors: Record<string, string>;
   hydrate: () => Promise<void>;
   switchProject: (projectId: string) => Promise<void>;
   createProject: () => Promise<void>;
@@ -46,6 +50,12 @@ interface SessionStore {
   renameProject: (name: string) => void;
   setTempo: (tempo: number) => void;
   setLaunchQuantize: (quantize: SessionQuantize) => void;
+  setLaneGain: (laneId: string, gain: number) => void;
+  toggleLaneMute: (laneId: string) => void;
+  toggleLaneSolo: (laneId: string) => void;
+  setLaneErrors: (laneErrors: Record<string, string>) => void;
+  mergeLastGood: (updates: Record<string, string>) => void;
+  clearRuntimeState: () => void;
   toggleClip: (clipId: string) => ActiveClips;
   stopLane: (laneId: string) => ActiveClips;
   launchScene: (sceneId: string) => ActiveClips;
@@ -144,7 +154,7 @@ export function normalizeLoadedProject(project: PersistedSessionProject) {
 
   return {
     ...base,
-    lanes: project.lanes,
+    lanes: project.lanes.map(normalizeLane),
     clips,
     scenes,
     activeByLane: Object.fromEntries(
@@ -164,8 +174,14 @@ function stateFromProject(project: PersistedSessionProject) {
 
 const initial = freshProject();
 
+const runtimeDefaults = {
+  lastGoodByClipId: {} as Record<string, string>,
+  laneErrors: {} as Record<string, string>,
+};
+
 export const useSessionStore = create<SessionStore>((set, get) => ({
   ...stateFromProject(initial),
+  ...runtimeDefaults,
   projects: [],
   hydrated: false,
   persistenceStatus: 'loading',
@@ -177,6 +193,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (!saved) await saveProject(project);
       set({
         ...stateFromProject(project),
+        ...runtimeDefaults,
         projects: await listProjects(),
         hydrated: true,
         persistenceStatus: 'saved',
@@ -198,7 +215,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!project) return;
     const activated = { ...project, updatedAt: Date.now() };
     await saveProject(activated);
-    set({ ...stateFromProject(activated), persistenceStatus: 'saved', persistenceError: null });
+    set({
+      ...stateFromProject(activated),
+      ...runtimeDefaults,
+      persistenceStatus: 'saved',
+      persistenceError: null,
+    });
   },
   createProject: async () => {
     await saveProject(projectFromState(get()));
@@ -206,6 +228,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     await saveProject(project);
     set({
       ...stateFromProject(project),
+      ...runtimeDefaults,
       projects: await listProjects(),
       persistenceStatus: 'saved',
       persistenceError: null,
@@ -227,6 +250,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     await saveProject(duplicate);
     set({
       ...stateFromProject(duplicate),
+      ...runtimeDefaults,
       projects: await listProjects(),
       persistenceStatus: 'saved',
       persistenceError: null,
@@ -241,6 +265,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       await saveProject(project);
       set({
         ...stateFromProject(project),
+        ...runtimeDefaults,
         projects: await listProjects(),
         persistenceStatus: 'saved',
         persistenceError: null,
@@ -253,7 +278,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     await saveProject(activated);
     set({
       ...stateFromProject(activated),
-      projects: await listProjects(),
+      ...runtimeDefaults,
       persistenceStatus: 'saved',
       persistenceError: null,
     });
@@ -261,6 +286,32 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   renameProject: (projectName) => set({ projectName }),
   setTempo: (tempo) => set({ tempo: clampTempo(tempo) }),
   setLaunchQuantize: (launchQuantize) => set({ launchQuantize }),
+  setLaneGain: (laneId, gain) =>
+    set((state) => ({
+      lanes: state.lanes.map((lane) =>
+        lane.id === laneId ? { ...lane, gain: clampLaneGain(gain) } : lane,
+      ),
+    })),
+  toggleLaneMute: (laneId) =>
+    set((state) => ({
+      lanes: state.lanes.map((lane) =>
+        lane.id === laneId ? { ...lane, muted: !lane.muted } : lane,
+      ),
+    })),
+  toggleLaneSolo: (laneId) =>
+    set((state) => ({
+      lanes: state.lanes.map((lane) =>
+        lane.id === laneId ? { ...lane, solo: !lane.solo } : lane,
+      ),
+    })),
+  setLaneErrors: (laneErrors) => set({ laneErrors }),
+  mergeLastGood: (updates) =>
+    set((state) => ({
+      lastGoodByClipId: Object.keys(updates).length
+        ? { ...state.lastGoodByClipId, ...updates }
+        : state.lastGoodByClipId,
+    })),
+  clearRuntimeState: () => set(runtimeDefaults),
   toggleClip: (clipId) => {
     const state = get();
     const clip = state.clips.find((candidate) => candidate.id === clipId);

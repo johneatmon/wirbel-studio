@@ -19,9 +19,9 @@ The product direction and architectural decisions live in [DESIGN.md](./DESIGN.m
 - A portable session compiler that renders active clips as ordinary `stack(...)` Strudel code
 - Versioned IndexedDB projects with autosave, project switching, new/duplicate flows, and reload restoration
 - Editable scene and clip names plus scene creation and clip create/duplicate/delete controls
+- Per-lane mixer (gain, mute, solo) and last-known-good clip error isolation during session playback
 
-The next product milestone adds a lane mixer and last-known-good error isolation, followed by
-capturing a jam into an arrangement and MIDI file interchange.
+The next product milestone captures a jam into an arrangement and adds MIDI file interchange.
 
 ## Run locally
 

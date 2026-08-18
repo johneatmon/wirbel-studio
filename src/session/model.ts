@@ -7,6 +7,7 @@ export interface SessionLane {
   role: LaneRole;
   gain: number;
   muted: boolean;
+  solo: boolean;
 }
 
 export interface SessionClip {
@@ -26,12 +27,34 @@ export interface SessionScene {
 export type ActiveClips = Record<string, string | null>;
 
 export const DEFAULT_LANES: SessionLane[] = [
-  { id: 'drums', name: 'Drums', role: 'drums', gain: 1, muted: false },
-  { id: 'bass', name: 'Bass', role: 'bass', gain: 1, muted: false },
-  { id: 'harmony', name: 'Harmony', role: 'harmony', gain: 1, muted: false },
-  { id: 'melody', name: 'Melody', role: 'melody', gain: 1, muted: false },
-  { id: 'texture', name: 'Texture', role: 'texture', gain: 1, muted: false },
+  { id: 'drums', name: 'Drums', role: 'drums', gain: 1, muted: false, solo: false },
+  { id: 'bass', name: 'Bass', role: 'bass', gain: 1, muted: false, solo: false },
+  { id: 'harmony', name: 'Harmony', role: 'harmony', gain: 1, muted: false, solo: false },
+  { id: 'melody', name: 'Melody', role: 'melody', gain: 1, muted: false, solo: false },
+  { id: 'texture', name: 'Texture', role: 'texture', gain: 1, muted: false, solo: false },
 ];
+
+export function clampLaneGain(gain: number): number {
+  if (!Number.isFinite(gain)) return 1;
+  return Math.min(1, Math.max(0, gain));
+}
+
+export function normalizeLane(lane: SessionLane): SessionLane {
+  return {
+    ...lane,
+    gain: clampLaneGain(lane.gain),
+    muted: lane.muted ?? false,
+    solo: lane.solo ?? false,
+  };
+}
+
+/** Whether a lane contributes to the compiled mix (mute/solo aware). */
+export function laneAudible(lane: SessionLane, lanes: SessionLane[]): boolean {
+  if (lane.muted) return false;
+  const anySolo = lanes.some((candidate) => candidate.solo);
+  if (anySolo) return lane.solo;
+  return true;
+}
 
 export const DEFAULT_CLIPS: SessionClip[] = [
   {
@@ -152,13 +175,52 @@ export function activateScene(
   );
 }
 
-function indentExpression(code: string): string {
+export function indentExpression(code: string): string {
   return code
     .trim()
     .replace(/;+$/, '')
     .split('\n')
     .map((line, index) => `${index === 0 ? '  ' : '    '}${line}`)
     .join('\n');
+}
+
+export function compileLaneExpression(lane: SessionLane, clip: SessionClip): string {
+  const trimmed = clip.code.trim().replace(/;+$/, '');
+  return lane.gain === 1 ? trimmed : `(${trimmed}).gain(${lane.gain})`;
+}
+
+export interface SessionCompilePart {
+  laneId: string;
+  laneName: string;
+  clipId: string;
+  expression: string;
+}
+
+export function compileSessionParts(
+  lanes: SessionLane[],
+  clips: SessionClip[],
+  active: ActiveClips,
+): SessionCompilePart[] {
+  const parts: SessionCompilePart[] = [];
+  for (const lane of lanes) {
+    if (!laneAudible(lane, lanes)) continue;
+    const clipId = active[lane.id];
+    const clip = clips.find((candidate) => candidate.id === clipId && candidate.laneId === lane.id);
+    if (!clip?.code.trim()) continue;
+    parts.push({
+      laneId: lane.id,
+      laneName: lane.name,
+      clipId: clip.id,
+      expression: compileLaneExpression(lane, clip),
+    });
+  }
+  return parts;
+}
+
+export function buildSessionStack(expressions: string[]): string | null {
+  if (!expressions.length) return null;
+  const indented = expressions.map(indentExpression);
+  return `// Generated from the active Strudel Studio session\nstack(\n${indented.join(',\n')}\n)`;
 }
 
 /** Compile current launch state into the exact portable Strudel program sent
@@ -168,16 +230,7 @@ export function compileSession(
   clips: SessionClip[],
   active: ActiveClips,
 ): string | null {
-  const expressions: string[] = [];
-  for (const lane of lanes) {
-    if (lane.muted) continue;
-    const clipId = active[lane.id];
-    const clip = clips.find((candidate) => candidate.id === clipId && candidate.laneId === lane.id);
-    if (!clip?.code.trim()) continue;
-
-    const code = lane.gain === 1 ? clip.code : `(${clip.code.trim()}).gain(${lane.gain})`;
-    expressions.push(indentExpression(code));
-  }
-  if (!expressions.length) return null;
-  return `// Generated from the active Strudel Studio session\nstack(\n${expressions.join(',\n')}\n)`;
+  return buildSessionStack(
+    compileSessionParts(lanes, clips, active).map((part) => part.expression),
+  );
 }
