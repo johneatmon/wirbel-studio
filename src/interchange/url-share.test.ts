@@ -39,7 +39,7 @@ describe('url share codec', () => {
     const decoded = decodeSharePayload(encodeSharePayload(payload));
     expect(decoded.kind).toBe('scene');
     if (decoded.kind === 'scene') {
-      expect(decoded.scene.name).toBe('Foundation');
+      expect(decoded.scene.name).toBe('Night Drive');
       expect(decoded.clips.length).toBeGreaterThan(0);
     }
   });

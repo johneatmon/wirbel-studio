@@ -6,9 +6,9 @@ import type { StarterPack } from './types';
 export const STARTER_PACKS: StarterPack[] = [
   {
     id: 'starter-jam',
-    name: 'Starter jam',
-    description: 'Five lanes, three scenes, and a full clip library to launch your first set.',
-    tempo: 120,
+    name: 'Night Drive',
+    description: 'Synthwave set at 104 — analog bass, gated pads, neon arp, 808 cruise.',
+    tempo: 104,
     launchQuantize: 'cycle',
     lanes: DEFAULT_LANES.map((lane) => ({ ...lane })),
     clips: STARTER_CLIPS,
@@ -16,9 +16,9 @@ export const STARTER_PACKS: StarterPack[] = [
   },
   {
     id: 'minimal',
-    name: 'Minimal',
-    description: 'One scene and a small clip set — less to learn, faster to play.',
-    tempo: 118,
+    name: 'Night Drive (small)',
+    description: 'One scene, five clips — same palette, less to launch.',
+    tempo: 104,
     launchQuantize: 'cycle',
     lanes: DEFAULT_LANES.map((lane) => ({ ...lane })),
     clips: STARTER_CLIPS.filter((clip) =>
@@ -27,8 +27,8 @@ export const STARTER_PACKS: StarterPack[] = [
     scenes: [
       {
         id: 'intro',
-        name: 'Intro',
-        description: 'Launch everything at once.',
+        name: 'Cruise',
+        description: 'Launch the night-drive core.',
         clipIds: {
           drums: 'drums-909',
           bass: 'bass-sub',

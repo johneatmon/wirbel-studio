@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { SessionClip } from './model';
+import { defaultLpfMotion, type ClipLfo, type SessionClip } from './model';
 import { ArrangementTimeline } from './arrangement-timeline';
 import { useSessionStore } from './session-store';
 
@@ -40,6 +40,7 @@ export function SessionWorkspace({
   const duplicateClip = useSessionStore((state) => state.duplicateClip);
   const deleteClip = useSessionStore((state) => state.deleteClip);
   const renameClip = useSessionStore((state) => state.renameClip);
+  const updateClipMotion = useSessionStore((state) => state.updateClipMotion);
   const addScene = useSessionStore((state) => state.addScene);
   const renameScene = useSessionStore((state) => state.renameScene);
   const renameProject = useSessionStore((state) => state.renameProject);
@@ -430,7 +431,7 @@ export function SessionWorkspace({
 
       <ArrangementTimeline />
 
-      <div className="flex min-h-12 items-center gap-3 border-t border-neutral-900 px-5 py-2 text-xs">
+      <div className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 border-t border-neutral-900 px-5 py-2 text-xs">
         {selectedClip ? (
           <>
             <span className="text-[10px] tracking-wider text-neutral-600 uppercase">Selected</span>
@@ -467,10 +468,18 @@ export function SessionWorkspace({
             >
               Delete
             </button>
+            <ClipCutoffSweep
+              clip={selectedClip}
+              disabled={!hydrated}
+              onChange={(lpf) => {
+                updateClipMotion(selectedClip.id, lpf ? { lpf } : undefined);
+                requestEval();
+              }}
+            />
           </>
         ) : (
           <span className="text-[10px] text-neutral-600">
-            Select a clip to rename, duplicate, delete, or edit its Strudel source.
+            Select a clip to rename, duplicate, delete, or sweep its cutoff.
           </span>
         )}
         <span className="ml-auto text-[10px] text-neutral-700">
@@ -542,5 +551,97 @@ export function SessionWorkspace({
         </div>
       )}
     </section>
+  );
+}
+
+function ClipCutoffSweep({
+  clip,
+  disabled,
+  onChange,
+}: {
+  clip: SessionClip;
+  disabled: boolean;
+  onChange: (lpf: ClipLfo | null) => void;
+}) {
+  const lpf = clip.motion?.lpf;
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-l border-neutral-800 pl-3">
+      <label className="flex items-center gap-1.5 text-[10px] text-neutral-500">
+        <input
+          type="checkbox"
+          checked={Boolean(lpf)}
+          disabled={disabled}
+          onChange={(event) =>
+            onChange(event.target.checked ? (lpf ?? defaultLpfMotion(clip.laneId)) : null)
+          }
+          aria-label="Cutoff sweep"
+        />
+        Cutoff sweep
+      </label>
+      {lpf ? (
+        <>
+          <MotionNumber
+            label="min"
+            value={lpf.min}
+            min={20}
+            max={18000}
+            disabled={disabled}
+            onChange={(min) => onChange({ ...lpf, min })}
+          />
+          <MotionNumber
+            label="max"
+            value={lpf.max}
+            min={20}
+            max={18000}
+            disabled={disabled}
+            onChange={(max) => onChange({ ...lpf, max })}
+          />
+          <MotionNumber
+            label="cycles"
+            value={lpf.cycles}
+            min={1}
+            max={64}
+            disabled={disabled}
+            onChange={(cycles) => onChange({ ...lpf, cycles })}
+          />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function MotionNumber({
+  label,
+  value,
+  min,
+  max,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  disabled: boolean;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1 text-[10px] text-neutral-600">
+      {label}
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        disabled={disabled}
+        aria-label={`Cutoff sweep ${label}`}
+        onChange={(event) => {
+          const next = Number(event.target.value);
+          if (!Number.isFinite(next)) return;
+          onChange(Math.min(max, Math.max(min, Math.round(next))));
+        }}
+        className="w-14 rounded border border-neutral-800 bg-neutral-900 px-1.5 py-1 text-neutral-300 outline-none focus:border-neutral-700 disabled:opacity-40"
+      />
+    </label>
   );
 }

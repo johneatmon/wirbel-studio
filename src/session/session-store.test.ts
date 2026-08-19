@@ -33,10 +33,21 @@ describe('session clip editing', () => {
     expect(useSessionStore.getState().selectedClipId).toBe(clip?.id);
   });
 
+  it('updates clip motion without rewriting source', () => {
+    const source = DEFAULT_CLIPS.find((clip) => clip.id === 'bass-acid');
+    useSessionStore.getState().updateClipMotion('bass-acid', {
+      lpf: { min: 200, max: 800, cycles: 4 },
+    });
+    const clip = useSessionStore.getState().clips.find((candidate) => candidate.id === 'bass-acid');
+    expect(clip?.code).toBe(source?.code);
+    expect(clip?.motion).toEqual({ lpf: { min: 200, max: 800, cycles: 4 } });
+  });
+
   it('duplicates a clip into an available scene slot', () => {
     const sceneId = useSessionStore.getState().addScene();
     const duplicate = useSessionStore.getState().duplicateClip('bass-acid');
-    expect(duplicate?.name).toBe('Acid Pulse copy');
+    expect(duplicate?.name).toBe('Night Bass copy');
+    expect(duplicate?.motion).toEqual(DEFAULT_CLIPS.find((clip) => clip.id === 'bass-acid')?.motion);
     expect(duplicate?.code).toBe(DEFAULT_CLIPS.find((clip) => clip.id === 'bass-acid')?.code);
     expect(
       useSessionStore.getState().scenes.find((scene) => scene.id === sceneId)?.clipIds.bass,

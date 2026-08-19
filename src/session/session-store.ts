@@ -80,6 +80,7 @@ interface SessionStore {
   stopAll: () => ActiveClips;
   selectClip: (clipId: string | null) => void;
   updateClipCode: (clipId: string, code: string) => void;
+  updateClipMotion: (clipId: string, motion: SessionClip['motion']) => void;
   renameClip: (clipId: string, name: string) => void;
   createClip: (laneId: string, sceneId: string) => SessionClip | null;
   duplicateClip: (clipId: string) => SessionClip | null;
@@ -372,6 +373,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   updateClipCode: (clipId, code) =>
     set((state) => ({
       clips: state.clips.map((clip) => (clip.id === clipId ? { ...clip, code } : clip)),
+    })),
+  updateClipMotion: (clipId, motion) =>
+    set((state) => ({
+      clips: state.clips.map((clip) => (clip.id === clipId ? { ...clip, motion } : clip)),
     })),
   renameClip: (clipId, name) =>
     set((state) => ({

@@ -37,16 +37,18 @@ import { LibraryPanel } from './ui/library-panel';
 import { CommunityBlocksPanel } from './ui/community-blocks-panel';
 
 
-const STARTER_CODE = `note("<c3 eb3 g3 bb3>*2")
+const STARTER_CODE = `note("<c3 eb3 g3 bb3>/2")
   .s("sawtooth")
-  .lpf(400)
-  .lpq(4)
-  .attack(0.05)
-  .release(0.15)
-  .room(0.2)
-  .gain(0.35)
+  .lpf(sine.range(420, 1800).slow(8))
+  .lpq(8)
+  .shape(0.28)
+  .attack(0.4)
+  .release(0.9)
+  .room(0.65)
+  .delay(0.28)
+  .gain(0.22)
 
-// $: s("bd*4, ~ cp ~ cp, hh*8").bank("RolandTR909")
+// $: s("bd*4, ~ sd ~, hh*16").bank("RolandTR808").gain(0.55)
 `;
 
 const QUANTIZE_OPTIONS: { value: QuantizeBoundary; label: string }[] = [

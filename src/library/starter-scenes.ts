@@ -3,8 +3,8 @@ import type { SceneTemplate } from './types';
 export const DEFAULT_SCENE_TEMPLATES: SceneTemplate[] = [
   {
     id: 'foundation',
-    name: 'Foundation',
-    description: 'Balanced groove — good first launch.',
+    name: 'Night Drive',
+    description: '808 cruise, analog bass, chrome pad, neon arp.',
     clipIds: {
       drums: 'drums-909',
       bass: 'bass-acid',
@@ -15,8 +15,8 @@ export const DEFAULT_SCENE_TEMPLATES: SceneTemplate[] = [
   },
   {
     id: 'lift',
-    name: 'Lift',
-    description: 'More motion and brighter harmony.',
+    name: 'Overdrive',
+    description: 'Gated snare, choir stabs, lead hook.',
     clipIds: {
       drums: 'drums-broken',
       bass: 'bass-sub',
@@ -27,8 +27,8 @@ export const DEFAULT_SCENE_TEMPLATES: SceneTemplate[] = [
   },
   {
     id: 'deep',
-    name: 'Deep',
-    description: 'Half-time drums with drifting pads.',
+    name: 'Chrome',
+    description: 'Half-time night shift, wide pads, high hooks.',
     clipIds: {
       drums: 'drums-half',
       bass: 'bass-pluck',

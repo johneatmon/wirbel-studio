@@ -67,4 +67,16 @@ describe('compileSession', () => {
     expect(code).not.toContain('bd*4');
     expect(code).toContain('c2');
   });
+
+  it('wraps clip motion around source without rewriting it', () => {
+    const moving: SessionClip[] = [
+      {
+        ...clips[1],
+        motion: { lpf: { min: 180, max: 1100, cycles: 8 } },
+      },
+    ];
+    const code = compileSession(lanes, moving, { drums: null, bass: 'bass-a' });
+    expect(moving[0].code).toBe('note("c2")');
+    expect(code).toContain('(note("c2")).lpf(sine.range(180, 1100).slow(8))');
+  });
 });

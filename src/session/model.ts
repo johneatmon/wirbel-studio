@@ -19,6 +19,42 @@ export interface SessionClip {
   name: string;
   code: string;
   color: string;
+  /** Time-varying controls compiled around the clip, not written into source. */
+  motion?: ClipMotion;
+}
+
+export interface ClipLfo {
+  min: number;
+  max: number;
+  cycles: number;
+}
+
+export interface ClipMotion {
+  lpf?: ClipLfo;
+}
+
+export function defaultLpfMotion(laneId: string): ClipLfo {
+  if (laneId === 'bass') return { min: 180, max: 1100, cycles: 8 };
+  if (laneId === 'harmony') return { min: 500, max: 2400, cycles: 16 };
+  if (laneId === 'melody') return { min: 900, max: 3600, cycles: 4 };
+  return { min: 400, max: 2000, cycles: 8 };
+}
+
+export function applyClipMotion(code: string, motion?: ClipMotion): string {
+  let expr = code.trim().replace(/;+$/, '');
+  const lpf = motion?.lpf;
+  if (
+    lpf &&
+    Number.isFinite(lpf.min) &&
+    Number.isFinite(lpf.max) &&
+    Number.isFinite(lpf.cycles)
+  ) {
+    const min = Math.min(18000, Math.max(20, lpf.min));
+    const max = Math.min(18000, Math.max(20, lpf.max));
+    const cycles = Math.min(64, Math.max(0.25, lpf.cycles));
+    expr = `(${expr}).lpf(sine.range(${Math.min(min, max)}, ${Math.max(min, max)}).slow(${cycles}))`;
+  }
+  return expr;
 }
 
 export interface SessionScene {
@@ -104,8 +140,8 @@ export function studioLaneTag(laneId: string): string {
 }
 
 export function compileLaneExpression(lane: SessionLane, clip: SessionClip): string {
-  const trimmed = clip.code.trim().replace(/;+$/, '');
-  const gained = lane.gain === 1 ? trimmed : `(${trimmed}).gain(${lane.gain})`;
+  const voiced = applyClipMotion(clip.code, clip.motion);
+  const gained = lane.gain === 1 ? voiced : `(${voiced}).gain(${lane.gain})`;
   return `(${gained}).tag(${JSON.stringify(studioLaneTag(lane.id))})`;
 }
 

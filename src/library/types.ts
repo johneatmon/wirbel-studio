@@ -1,4 +1,4 @@
-import type { SessionLane, SessionQuantize } from '../session/model';
+import type { ClipMotion, SessionLane, SessionQuantize } from '../session/model';
 
 export interface LibraryClip {
   id: string;
@@ -6,6 +6,7 @@ export interface LibraryClip {
   name: string;
   color: string;
   code: string;
+  motion?: ClipMotion;
 }
 
 export interface SceneTemplate {
