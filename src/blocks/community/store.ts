@@ -5,7 +5,7 @@ import {
   type SerializableBlockDef,
 } from './template-body';
 
-const STORAGE_KEY = 'strudel-studio-community-blocks';
+const STORAGE_KEY = 'wirbel-community-blocks';
 
 function readUserBlocks(): SerializableBlockDef[] {
   try {

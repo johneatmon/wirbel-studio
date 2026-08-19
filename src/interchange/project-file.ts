@@ -11,6 +11,6 @@ export function parseProjectFile(text: string): PersistedSessionProject {
   } catch {
     throw new Error('Not a valid JSON project file');
   }
-  if (!isProject(value)) throw new Error('Not a Strudel Studio project file');
+  if (!isProject(value)) throw new Error('Not a Wirbel project file');
   return value;
 }

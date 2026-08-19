@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'strudel-studio-onboarding-v1';
+const STORAGE_KEY = 'wirbel-onboarding-v1';
 
 export function isOnboardingComplete(): boolean {
   try {

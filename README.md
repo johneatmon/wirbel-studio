@@ -1,8 +1,8 @@
-# Strudel Studio
+# Wirbel
 
 A session-oriented live-coding music environment built on [Strudel](https://strudel.cc/). Musicians
 launch clips into instrument lanes, combine them into scenes, and open any clip as plain Strudel code.
-Locked parameter blocks remain the bridge from guided composition to live coding.
+The public origin is [wirbel.dev](https://wirbel.dev).
 
 What's next lives in [ROADMAP.md](./ROADMAP.md).
 
@@ -22,7 +22,7 @@ What's next lives in [ROADMAP.md](./ROADMAP.md).
 - Per-lane mixer (gain, mute, solo) and last-known-good clip error isolation during session playback
 - Jam capture to a scheduler-cycle arrangement with replay and a compact lane timeline
 - MIDI file import/export, copy-as-Strudel / strudel.cc links, and downloadable JSON project files
-- Starter library with scene templates, Studio URL sharing, onboarding hints, and importable community blocks
+- Starter library with scene templates, Wirbel URL sharing, onboarding hints, and importable community blocks
 - Collapsible hap-lane visualizer
 
 ## Run locally
@@ -44,6 +44,24 @@ pnpm test
 pnpm lint
 pnpm build
 ```
+
+## Preview the production build
+
+`pnpm preview` is Vite's static server. `pnpm preview:cf` builds first, then serves `dist/` with
+Wrangler — same static-asset + SPA fallback as Cloudflare.
+
+```sh
+pnpm preview:cf
+```
+
+First production deploy (Cloudflare login required):
+
+```sh
+pnpm deploy
+```
+
+Attach `wirbel.dev` as a custom domain on the `wirbel` Worker in the Cloudflare dashboard. IndexedDB
+is per-origin, so localhost and wirbel.dev keep separate project libraries.
 
 ## Keyboard controls
 

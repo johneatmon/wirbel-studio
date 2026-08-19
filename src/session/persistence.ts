@@ -1,7 +1,7 @@
 import type { ActiveClips, SessionClip, SessionLane, SessionScene, SessionQuantize } from './model';
 import type { Arrangement } from './arrangement';
 
-const DB_NAME = 'strudel-studio';
+const DB_NAME = 'wirbel';
 const DB_VERSION = 1;
 const PROJECTS_STORE = 'projects';
 const META_STORE = 'meta';

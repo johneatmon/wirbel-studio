@@ -6,7 +6,7 @@ export const COMMUNITY_BLOCK_MANIFEST: SerializableBlockDef[] = [
     name: 'Shuffled Hats',
     category: 'drums',
     description: 'Offbeat kick with shuffled hats on a classic drum machine',
-    author: 'Strudel Studio',
+    author: 'Wirbel',
     source: 'community',
     slots: [
       {
@@ -25,7 +25,7 @@ export const COMMUNITY_BLOCK_MANIFEST: SerializableBlockDef[] = [
     name: 'Sub Pulse',
     category: 'bass',
     description: 'Simple sub pulse with a gentle filter',
-    author: 'Strudel Studio',
+    author: 'Wirbel',
     source: 'community',
     slots: [
       { kind: 'mini', key: 'note', label: 'notes', default: '<c2 c2 eb2 bb1>' },
@@ -49,7 +49,7 @@ export const COMMUNITY_BLOCK_MANIFEST: SerializableBlockDef[] = [
     name: 'Sparkle Top',
     category: 'melody',
     description: 'High bell-like figures with a little room',
-    author: 'Strudel Studio',
+    author: 'Wirbel',
     source: 'community',
     slots: [
       { kind: 'mini', key: 'note', label: 'notes', default: '<g5 bb5 d6>*2' },

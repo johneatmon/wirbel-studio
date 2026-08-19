@@ -96,7 +96,7 @@ export function InterchangePanel({
 
         <section className="space-y-2">
           <h3 className="text-[10px] font-semibold tracking-[0.18em] text-neutral-600 uppercase">
-            Studio link
+            Wirbel link
           </h3>
           <button
             type="button"
@@ -111,12 +111,12 @@ export function InterchangePanel({
                 }
                 const url = buildShareUrl(payload);
                 await navigator.clipboard.writeText(url);
-                report('Copied Studio share link. Opening this URL imports the project.');
+                report('Copied Wirbel share link. Opening this URL imports the project.');
               })
             }
             className="rounded bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
           >
-            Copy Studio link
+            Copy Wirbel link
           </button>
         </section>
 

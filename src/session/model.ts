@@ -176,7 +176,7 @@ export function compileSessionParts(
 export function buildSessionStack(expressions: string[]): string | null {
   if (!expressions.length) return null;
   const indented = expressions.map(indentExpression);
-  return `// Generated from the active Strudel Studio session\nstack(\n${indented.join(',\n')}\n)`;
+  return `// Generated from the active Wirbel session\nstack(\n${indented.join(',\n')}\n)`;
 }
 
 /** Compile current launch state into the exact portable Strudel program sent

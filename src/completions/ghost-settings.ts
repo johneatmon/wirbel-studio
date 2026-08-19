@@ -7,7 +7,7 @@ export interface GhostSettings {
   endpoint: string;
 }
 
-const STORAGE_KEY = 'strudel-studio:ghost-settings';
+const STORAGE_KEY = 'wirbel:ghost-settings';
 
 export const DEFAULT_GHOST_SETTINGS: GhostSettings = {
   enabled: false,

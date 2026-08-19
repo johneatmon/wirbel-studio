@@ -420,7 +420,7 @@ function App() {
     },
     {
       id: 'copy-studio-link',
-      label: 'Copy Studio share link',
+      label: 'Copy Wirbel share link',
       run: () => {
         const payload = projectSharePayload(snapshotProject());
         if (shareUrlLength(payload) > SHARE_URL_MAX) return;
@@ -473,7 +473,7 @@ function App() {
   return (
     <div className="flex h-full flex-col bg-neutral-950 text-neutral-200">
       <header className="flex items-center gap-4 border-b border-neutral-800 px-4 py-2 text-sm">
-        <h1 className="shrink-0 text-sm font-medium text-neutral-400">strudel studio</h1>
+        <h1 className="shrink-0 text-sm font-medium text-neutral-400">wirbel</h1>
         <div
           className="h-6 w-6 shrink-0 rounded-full transition-colors"
           style={{

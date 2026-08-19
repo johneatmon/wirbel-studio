@@ -4,7 +4,7 @@ The session MVP is built. Next work is in this order. Don't skip ahead: hosting 
 
 ## Now
 
-**Host a public build.** Studio URL sharing is only useful if someone else can open the link. Ship a static deploy (no accounts, no backend). Keep IndexedDB local-first. If a share payload is too large for the hash, keep falling back to the JSON project file.
+**Host a public build on wirbel.dev.** Wrangler is set up for a local production preview (`pnpm preview:cf`). First `pnpm deploy` plus attaching the custom domain makes share links real. Keep IndexedDB local-first. If a share payload is too large for the hash, keep falling back to the JSON project file.
 
 ## Next
 
