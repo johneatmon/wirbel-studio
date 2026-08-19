@@ -7,6 +7,7 @@ import { useClockStore } from './store/clock-store';
 import { allBlocks, refreshCommunityRegistry } from './blocks/registry';
 import { VisualCanvas } from './visuals/visual-canvas';
 import {
+  AI_FEATURES_VISIBLE,
   loadGhostSettings,
   saveGhostSettings,
   type GhostSettings,
@@ -445,13 +446,17 @@ function App() {
       hint: 'Share',
       run: () => setShowInterchange(true),
     },
-    {
-      id: 'riff',
-      label: 'Riff a complementary layer',
-      hint: ghostSettings.apiKey ? 'AI' : 'Needs API key',
-      disabled: !ready || !ghostSettings.apiKey,
-      run: startRiff,
-    },
+    ...(AI_FEATURES_VISIBLE
+      ? [
+          {
+            id: 'riff',
+            label: 'Riff a complementary layer',
+            hint: ghostSettings.apiKey ? 'AI' : 'Needs API key',
+            disabled: !ready || !ghostSettings.apiKey,
+            run: startRiff,
+          },
+        ]
+      : []),
     ...blockDefs.map((def) => ({
       id: `block-${def.id}`,
       label: `Insert ${def.name}`,
@@ -586,15 +591,17 @@ function App() {
         >
           ⌘K
         </button>
-        <button
-          type="button"
-          onClick={() => setShowSettings(true)}
-          className="rounded px-2 py-1 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
-          aria-label="Open settings"
-          title="Settings"
-        >
-          ⚙
-        </button>
+        {AI_FEATURES_VISIBLE && (
+          <button
+            type="button"
+            onClick={() => setShowSettings(true)}
+            className="rounded px-2 py-1 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+            aria-label="Open settings"
+            title="Settings"
+          >
+            ⚙
+          </button>
+        )}
       </header>
 
       {workspace === 'code' && (
@@ -653,7 +660,7 @@ function App() {
                 setGhostStatus({ status: nextStatus, message })
               }
             />
-            {riff && (
+            {AI_FEATURES_VISIBLE && riff && (
               <RiffPreview
                 code={riff.code}
                 error={riff.error}
@@ -704,7 +711,7 @@ function App() {
             <span className="text-neutral-500">idle</span>
           )}
         </span>
-        {ghostSettings.enabled && (
+        {AI_FEATURES_VISIBLE && ghostSettings.enabled && (
           <span
             className={`ml-auto ${ghostStatus.status === 'error' ? 'text-red-400' : 'text-neutral-500'}`}
             title={ghostStatus.message}
@@ -757,7 +764,7 @@ function App() {
         <InterchangePanel engineReady={ready} onClose={() => setShowInterchange(false)} />
       )}
 
-      {showSettings && (
+      {AI_FEATURES_VISIBLE && showSettings && (
         <GhostSettingsPanel
           initial={ghostSettings}
           onSave={handleSaveSettings}

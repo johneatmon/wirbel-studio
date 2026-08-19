@@ -14,8 +14,7 @@ What's next lives in [ROADMAP.md](./ROADMAP.md).
 - Number, enum, and mini-notation slot controls with quantized re-evaluation
 - Deterministic API, sample, scale, bank, and mini-notation autocomplete
 - Hap-lane visualization aligned to session mixer rows, with tagged clip identity, plus a shared-clock oscilloscope underlay
-- Optional, idle-triggered Anthropic ghost text with Tab acceptance and locked-block suppression
-- Command palette (`Cmd/Ctrl + K`) with a riff command that auditions a complementary AI layer before insert
+- Command palette (`Cmd/Ctrl + K`) with insert-block, templates, and share commands
 - Session workspace with five lanes, clock-quantized clip replacement, and per-lane stops
 - A portable session compiler that renders active clips as ordinary `stack(...)` Strudel code
 - Versioned IndexedDB projects with autosave, project switching, new/duplicate flows, and reload restoration
@@ -52,7 +51,7 @@ pnpm build
 | ------------------ | ---------------------------------------------- |
 | `Cmd/Ctrl + Enter` | Evaluate immediately                           |
 | `Cmd/Ctrl + .`     | Stop playback                                  |
-| `Tab`              | Accept visible AI ghost text; otherwise indent |
+| `Tab`              | Indent                                       |
 | `Cmd/Ctrl + K`     | Command palette (templates, blocks, share) |
 | `1`–`9`            | Launch scene by row (session workspace)    |
 | `Space`            | Toggle launch for selected clip            |
@@ -66,14 +65,3 @@ exports Standard MIDI Files, and downloads or loads a JSON project.
 
 Blocks can be inserted from the Code toolbar and ejected from their header. Number chips support
 drag, wheel, and double-click entry; Shift makes a drag finer and Alt makes it coarser.
-
-## AI completion
-
-AI completion is off by default. Open the settings button, provide an Anthropic-compatible API key,
-and enable inline suggestions. The key is saved only to this browser's local storage and requests
-go directly to the configured Messages API endpoint. For a deployed or shared build, use a restricted
-key or place a small authenticated proxy in front of the provider.
-
-The endpoint and model are editable because provider model names and gateways change independently
-of the app. With a key saved, **Riff a complementary layer** in the command palette asks for a
-whole extra part, auditions it stacked on the current buffer, and inserts it only if you accept.

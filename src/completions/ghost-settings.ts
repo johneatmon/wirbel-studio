@@ -1,3 +1,5 @@
+export const AI_FEATURES_VISIBLE = false;
+
 export interface GhostSettings {
   enabled: boolean;
   apiKey: string;
@@ -21,7 +23,7 @@ export function loadGhostSettings(): GhostSettings {
       window.localStorage.getItem(STORAGE_KEY) ?? '{}',
     ) as Partial<GhostSettings>;
     return {
-      enabled: saved.enabled === true,
+      enabled: AI_FEATURES_VISIBLE && saved.enabled === true,
       apiKey: typeof saved.apiKey === 'string' ? saved.apiKey : '',
       model:
         typeof saved.model === 'string' && saved.model ? saved.model : DEFAULT_GHOST_SETTINGS.model,
