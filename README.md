@@ -4,7 +4,7 @@ A session-oriented live-coding music environment built on [Strudel](https://stru
 launch clips into instrument lanes, combine them into scenes, and open any clip as plain Strudel code.
 Locked parameter blocks remain the bridge from guided composition to live coding.
 
-The product direction and architectural decisions live in [DESIGN.md](./DESIGN.md).
+What's next lives in [ROADMAP.md](./ROADMAP.md).
 
 ## Current MVP state
 
@@ -24,8 +24,7 @@ The product direction and architectural decisions live in [DESIGN.md](./DESIGN.m
 - Jam capture to a scheduler-cycle arrangement with replay and a compact lane timeline
 - MIDI file import/export, copy-as-Strudel / strudel.cc links, and downloadable JSON project files
 - Starter library with scene templates, Studio URL sharing, onboarding hints, and importable community blocks
-
-The MVP milestone gate is a non-programmer creating and saving a structured jam in under five minutes.
+- Collapsible hap-lane visualizer
 
 ## Run locally
 

@@ -6,7 +6,7 @@ import { drawHapLane } from './hap-lane';
 import { drawScope } from './scope';
 
 /** Both layers share the ClockStore's single rAF (see audio/clock.ts's
- * onFrame) rather than running their own loops — §7 perf budget. */
+ * onFrame) rather than running their own loops. */
 export function VisualCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lanes = useSessionStore((state) => state.lanes);

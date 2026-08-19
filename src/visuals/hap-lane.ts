@@ -15,9 +15,9 @@ export interface HapLaneRow {
   name: string;
 }
 
-// §7 perf budget: queryArc is memoized per frame, snapped to a 1/32-cycle
-// grid, so scrubbing/idle frames within the same slice reuse the last query
-// instead of re-walking the pattern.
+// queryArc is memoized per frame, snapped to a 1/32-cycle grid, so
+// scrubbing/idle frames within the same slice reuse the last query instead of
+// re-walking the pattern.
 const QUANTUM = 1 / 32;
 let cachedPattern: Pattern | null = null;
 let cachedWindowStart: number | null = null;

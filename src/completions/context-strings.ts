@@ -29,7 +29,7 @@ function toCompletions(names: string[], type: string): Completion[] {
 }
 
 /** Sample names inside s("…")/sound("…"), scale names inside scale("…"),
- * bank names inside bank("…") — DESIGN.md §6 Tier 1, item 2. Sample names are
+ * bank names inside bank("…"). Sample names are
  * read live off the sound registry (whatever samples() actually loaded), not
  * a static guess. */
 export function contextStringCompletions(context: CompletionContext): CompletionResult | null {

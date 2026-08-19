@@ -29,8 +29,8 @@ const snippets: Completion[] = [
 
 const TOKEN = /[\w*<>[\]~]*/;
 
-/** Mini-notation template snippets (DESIGN.md §6 Tier 1, item 3) — available
- * inside any pattern string, not just specific calls like s()/scale(). */
+/** Mini-notation template snippets — available inside any pattern string, not
+ * just specific calls like s()/scale(). */
 export function miniNotationSnippets(context: CompletionContext): CompletionResult | null {
   if (!isInsideString(context)) return null;
   const word = context.matchBefore(TOKEN);

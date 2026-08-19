@@ -49,10 +49,10 @@ for (const entry of entries) {
   }
 }
 
-/** Doc-JSON completions (DESIGN.md §6 Tier 1, item 1) — every documented
- * Strudel function/method, vendored at build time via
- * scripts/extract-strudel-docs.mjs. Suppressed inside string literals, where
- * context-aware completions (function-docs' sibling, context-strings.ts) take
+/** Doc-JSON completions — every documented Strudel function/method, vendored
+ * at build time via scripts/extract-strudel-docs.mjs. Suppressed inside string
+ * literals, where context-aware completions (function-docs' sibling,
+ * context-strings.ts) take
  * over instead. */
 export function functionDocCompletions(context: CompletionContext): CompletionResult | null {
   if (isInsideString(context)) return null;

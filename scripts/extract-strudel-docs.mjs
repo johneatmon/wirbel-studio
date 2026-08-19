@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Vendors Strudel's function/method docs into a static JSON completions
-// source (DESIGN.md §6 Tier 1, item 1). Strudel's own doc-generation
+// source. Strudel's own doc-generation
 // pipeline lives in their monorepo tooling, not in the published npm
 // package, but the package DOES ship its original unminified source .mjs
 // files (unlike the bundled dist) with the JSDoc intact — this script

@@ -4,9 +4,9 @@ import { useClockStore } from '../store/clock-store';
 let rafId: number | null = null;
 let prevCycleNow = 0;
 
-/** DESIGN.md §7 perf budget: every visual layer draws off this one rAF
- * instead of running its own loop. Listeners fire every frame, even before
- * the engine is ready (cycleNow stays 0 until then). */
+/** Every visual layer draws off this one rAF instead of running its own loop.
+ * Listeners fire every frame, even before the engine is ready (cycleNow stays
+ * 0 until then). */
 const frameListeners = new Set<(cycleNow: number) => void>();
 export function onFrame(listener: (cycleNow: number) => void): () => void {
   frameListeners.add(listener);

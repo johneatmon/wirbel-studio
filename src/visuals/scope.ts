@@ -1,5 +1,5 @@
 /** Oscilloscope-style waveform line, drawn first so the hap lane composites
- * on top of it ("garnish layer, blended under the hap lane" — §7). */
+ * on top of it. */
 export function drawScope(
   ctx: CanvasRenderingContext2D,
   waveform: Float32Array,
