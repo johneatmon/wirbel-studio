@@ -1,0 +1,30 @@
+{
+    "cSpell.words": [
+        "wirbel"
+    ],
+    "editor.formatOnPaste": true,
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "editor.rulers": [
+        100
+    ],
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll.esbenp.prettier-vscode": "explicit",
+        "source.fixAll.eslint": "explicit"
+    },
+    "files.exclude": {
+        "**/.pnpm-store": true,
+        "**/.wrangler": true,
+        "**/dist": true,
+        "**/node_modules": true,
+        "**/tsconfig.tsbuildinfo": true
+    },
+    "search.exclude": {
+        "**/.pnpm-store": true,
+        "**/.wrangler": true,
+        "**/dist": true,
+        "**/node_modules": true,
+        "**/tsconfig.tsbuildinfo": true
+    },
+}
